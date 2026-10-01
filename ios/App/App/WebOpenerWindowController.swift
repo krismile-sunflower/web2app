@@ -137,19 +137,19 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         rightEdge.edges = .right
         container.addGestureRecognizer(rightEdge)
 
-        observations.append(webView.observe(\.title, options: [.new])) { [weak self] webView, _ in
+        observations.append(webView.observe(\.title, options: [.new]) { [weak self] webView, _ in
             let title = webView.title
             self?.titleLabel?.text = (title?.isEmpty == false) ? title : self?.options.title
-        }
-        observations.append(webView.observe(\.canGoBack, options: [.new])) { [weak self] webView, _ in
+        })
+        observations.append(webView.observe(\.canGoBack, options: [.new]) { [weak self] webView, _ in
             self?.backBtn?.isEnabled = webView.canGoBack
             self?.backBtn?.alpha = webView.canGoBack ? 1 : 0.35
-        }
-        observations.append(webView.observe(\.canGoForward, options: [.new])) { [weak self] webView, _ in
+        })
+        observations.append(webView.observe(\.canGoForward, options: [.new]) { [weak self] webView, _ in
             self?.forwardBtn?.isEnabled = webView.canGoForward
             self?.forwardBtn?.alpha = webView.canGoForward ? 1 : 0.35
-        }
-        observations.append(webView.scrollView.observe(\.contentOffset, options: [.new])) { [weak self] scrollView, _ in
+        })
+        observations.append(webView.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scrollView, _ in
             guard let self else { return }
             if scrollView.isTracking && scrollView.contentOffset.y < -70 {
                 self.pullArmed = true
@@ -160,7 +160,7 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
                     webView.reload()
                 }
             }
-        }
+        })
 
         backBtn?.isEnabled = false
         backBtn?.alpha = 0.35
