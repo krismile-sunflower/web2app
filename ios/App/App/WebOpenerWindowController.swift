@@ -13,7 +13,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
     private var webView: WKWebView?
     private var titleLabel: UILabel?
     private var backBtn: UIButton?
-    private var forwardBtn: UIButton?
     private var progressView: UIProgressView?
     private var spinner: UIActivityIndicatorView?
     private var observations: [NSKeyValueObservation] = []
@@ -62,12 +61,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         backButton.addTarget(self, action: #selector(goBackTapped), for: .touchUpInside)
         backBtn = backButton
 
-        let forwardButton = UIButton(type: .system)
-        forwardButton.setImage(UIImage(systemName: "chevron.right"), for: .normal)
-        forwardButton.tintColor = tintColor
-        forwardButton.addTarget(self, action: #selector(goForwardTapped), for: .touchUpInside)
-        forwardBtn = forwardButton
-
         let titleLabel = UILabel()
         titleLabel.text = options.title
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
@@ -75,16 +68,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 1
         self.titleLabel = titleLabel
-
-        let reloadButton = UIButton(type: .system)
-        reloadButton.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
-        reloadButton.tintColor = tintColor
-        reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
-
-        let safariButton = UIButton(type: .system)
-        safariButton.setImage(UIImage(systemName: "safari"), for: .normal)
-        safariButton.tintColor = tintColor
-        safariButton.addTarget(self, action: #selector(openInSafariTapped), for: .touchUpInside)
 
         let closeButton = UIButton(type: .system)
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
@@ -105,7 +88,7 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         titleHolder.addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let toolbar = UIStackView(arrangedSubviews: [backButton, forwardButton, titleHolder, reloadButton, safariButton, closeButton])
+        let toolbar = UIStackView(arrangedSubviews: [backButton, titleHolder, closeButton])
         toolbar.axis = .horizontal
         toolbar.alignment = .center
         toolbar.spacing = 18
@@ -176,10 +159,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             self?.backBtn?.isEnabled = webView.canGoBack
             self?.backBtn?.alpha = webView.canGoBack ? 1 : 0.35
         })
-        observations.append(webView.observe(\.canGoForward, options: [.new]) { [weak self] webView, _ in
-            self?.forwardBtn?.isEnabled = webView.canGoForward
-            self?.forwardBtn?.alpha = webView.canGoForward ? 1 : 0.35
-        })
         observations.append(webView.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scrollView, _ in
             guard let self else { return }
             if scrollView.isTracking && scrollView.contentOffset.y < -70 {
@@ -202,8 +181,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
 
         backBtn?.isEnabled = false
         backBtn?.alpha = 0.35
-        forwardBtn?.isEnabled = false
-        forwardBtn?.alpha = 0.35
 
         webView.load(URLRequest(url: url))
     }
@@ -220,6 +197,14 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         onClose()
     }
 
+    @objc private func goBackTapped() {
+        if webView?.canGoBack == true {
+            webView?.goBack()
+        } else {
+            dismiss()
+        }
+    }
+
     @objc private func edgeSwiped(_ gesture: UIScreenEdgePanGestureRecognizer) {
         guard gesture.state == .began else { return }
         if gesture.edges == .left {
@@ -231,27 +216,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         } else if webView?.canGoForward == true {
             webView?.goForward()
         }
-    }
-
-    @objc private func goBackTapped() {
-        if webView?.canGoBack == true {
-            webView?.goBack()
-        } else {
-            dismiss()
-        }
-    }
-
-    @objc private func goForwardTapped() {
-        webView?.goForward()
-    }
-
-    @objc private func reloadTapped() {
-        webView?.reload()
-    }
-
-    @objc private func openInSafariTapped() {
-        guard let current = webView?.url ?? URL(string: url.absoluteString) else { return }
-        UIApplication.shared.open(current)
     }
 
     @objc private func closeTapped() {

@@ -111,7 +111,7 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-row">
           <div className="topbar-title">
-            <h1>Web2App</h1>
+            <h1>网页盒子</h1>
             <span className="topbar-count">{sites.length} 个网页</span>
           </div>
           <div className="topbar-actions">

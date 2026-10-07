@@ -105,7 +105,7 @@ export function SettingsSheet({ open, onClose }: SettingsSheetProps) {
         <section className="settings-group">
           <h4>关于</h4>
           <p className="settings-hint">
-            Web2App v0.1.0 —— 把网页变成你手机上的 app。所有数据仅保存在本地。
+            网页盒子 v0.1.0 —— 把网页变成你手机上的 app。所有数据仅保存在本地。
           </p>
         </section>
 

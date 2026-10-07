@@ -42,5 +42,5 @@ xcrun simctl install "$SIM_ID" ios/build/Build/Products/Debug-iphonesimulator/Ap
 xcrun simctl launch "$SIM_ID" com.zcc.web2app
 
 echo ""
-echo "✅ Web2App 已在模拟器（$SIM_NAME）中启动。"
+echo "✅ 网页盒子已在模拟器（$SIM_NAME）中启动。"
 echo "   截图：xcrun simctl io booted screenshot shot.png"
