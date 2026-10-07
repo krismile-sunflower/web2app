@@ -28,9 +28,13 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName="1.0.${{ github.run_number }}"
       - name: 重命名 APK（固定下载文件名）
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk web2app.apk
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk web2app.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk "web2app-1.0.${{ github.run_number }}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: web2app-debug-apk
@@ -40,9 +44,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest web2app.apk \
-            --title "Web2App 最新版" \
-            --notes "自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。debug 签名，下载后直接安装。固定下载链接：https://github.com/${{ github.repository }}/releases/latest/download/web2app.apk"
+          gh release create latest web2app.apk "web2app-1.0.${{ github.run_number }}.apk" \
+            --title "Web2App 1.0.${{ github.run_number }}" \
+            --notes "版本 1.0.${{ github.run_number }}（build ${{ github.run_number }}），自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。
+          versionCode 随构建号递增，可直接覆盖安装，无需卸载旧版。
+          固定下载链接：https://github.com/${{ github.repository }}/releases/latest/download/web2app.apk"
 
   ios-build:
     name: iOS 编译校验（模拟器）
