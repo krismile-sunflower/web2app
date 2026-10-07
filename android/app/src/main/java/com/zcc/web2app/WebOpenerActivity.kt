@@ -1,13 +1,10 @@
 package com.zcc.web2app
 
 import android.app.Activity
-import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
-import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -15,17 +12,13 @@ import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.TextView
-import android.widget.Toast
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
-/// 全屏 WebView 页面：自绘工具栏（返回/前进/标题/刷新/外部浏览器/关闭）、
-/// 下拉刷新、加载进度条 + 主题色加载背景（避免白/黑屏闪烁）、UA 覆盖与脚本注入。
-/// 系统返回手势/返回键语义：WebView 有历史则网页内后退，否则关闭页面。
+/// 全屏 WebView 页面（无工具栏）：纯手势导航——系统返回手势/返回键 = 网页内后退，
+/// 无历史则退出；下拉刷新；顶部加载进度条 + 主题色背景；UA 覆盖与脚本注入。
 class WebOpenerActivity : Activity() {
 
     companion object {
@@ -38,12 +31,10 @@ class WebOpenerActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var refreshLayout: SwipeRefreshLayout
-    private lateinit var titleView: TextView
-    private lateinit var backBtn: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var spinner: ProgressBar
 
-    @Suppress("SetJavaScriptEnabled", "PrivateResource", "DEPRECATION")
+    @Suppress("SetJavaScriptEnabled", "DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -53,58 +44,15 @@ class WebOpenerActivity : Activity() {
             return
         }
 
-        val density = resources.displayMetrics.density
-        fun dp(v: Int): Int = (v * density).toInt()
-
         val themeHex = intent.getStringExtra(EXTRA_COLOR)
         val themeColor = themeHex?.takeIf { it.isNotBlank() }
             ?.let { hex -> runCatching { Color.parseColor(hex) }.getOrNull() }
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
-        // 无主题色时用深浅色自适应底色，避免加载前闪白/黑屏、按钮白字看不清
+        // 无主题色时用深浅色自适应底色，避免加载前闪白/黑屏
         val baseColor = themeColor
             ?: (if (isDark) 0xFF1C1C1E.toInt() else 0xFFF2F2F7.toInt())
-        val contentColor = if (themeColor != null || isDark) Color.WHITE else 0xFF1C1C1E.toInt()
-
-        fun toolbarButton(label: String, onClick: () -> Unit): Button = Button(this).apply {
-            text = label
-            background = null
-            setTextColor(contentColor)
-            textSize = 22f
-            setPadding(dp(10), 0, dp(10), 0)
-            minWidth = dp(44)
-            minHeight = dp(44)
-            setOnClickListener { onClick() }
-        }
-
-        val back = toolbarButton("‹") {
-            if (this@WebOpenerActivity::webView.isInitialized && webView.canGoBack()) webView.goBack() else finish()
-        }
-        backBtn = back
-
-        titleView = TextView(this).apply {
-            text = intent.getStringExtra(EXTRA_TITLE)
-            textSize = 15f
-            setTextColor(contentColor)
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
-            gravity = Gravity.CENTER
-        }
-
-        val close = toolbarButton("✕") { finish() }
-
-        val toolbar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(baseColor)
-            setPadding(dp(6), 0, dp(6), 0)
-            addView(back)
-            addView(
-                titleView,
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            )
-            addView(close)
-        }
+        val accentColor = if (themeColor != null || isDark) Color.WHITE else 0xFF1C1C1E.toInt()
 
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -127,11 +75,6 @@ class WebOpenerActivity : Activity() {
             setBackgroundColor(baseColor)
             intent.getStringExtra(EXTRA_UA)?.takeIf { it.isNotBlank() }?.let { settings.userAgentString = it }
             webViewClient = object : WebViewClient() {
-                override fun doUpdateVisitedHistory(view: WebView, urlStr: String?, isReload: Boolean) {
-                    back.isEnabled = view.canGoBack()
-                    back.alpha = if (back.isEnabled) 1f else 0.4f
-                }
-
                 override fun onPageFinished(view: WebView, urlStr: String?) {
                     refreshLayout.isRefreshing = false
                     progressBar.visibility = View.GONE
@@ -144,10 +87,6 @@ class WebOpenerActivity : Activity() {
                 override fun onProgressChanged(view: WebView, newProgress: Int) {
                     progressBar.visibility = if (newProgress >= 100) View.GONE else View.VISIBLE
                     progressBar.progress = newProgress
-                }
-
-                override fun onReceivedTitle(view: WebView, title: String?) {
-                    if (!title.isNullOrBlank()) titleView.text = title
                 }
             }
         }
@@ -165,7 +104,7 @@ class WebOpenerActivity : Activity() {
 
         spinner = ProgressBar(this).apply {
             visibility = View.GONE
-            indeterminateTintList = ColorStateList.valueOf(contentColor)
+            indeterminateTintList = ColorStateList.valueOf(accentColor)
         }
 
         val pageContainer = FrameLayout(this).apply {
@@ -189,19 +128,18 @@ class WebOpenerActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(baseColor)
-            addView(toolbar, LinearLayout.LayoutParams(-1, dp(52)))
             addView(
                 progressBar,
-                LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT)
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
             )
             addView(pageContainer, LinearLayout.LayoutParams(-1, 0, 1f))
         }
 
         setContentView(root)
         window.statusBarColor = baseColor
-
-        back.isEnabled = false
-        back.alpha = 0.4f
 
         spinner.visibility = View.VISIBLE
         webView.loadUrl(url)
