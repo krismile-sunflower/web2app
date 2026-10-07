@@ -19,11 +19,12 @@ android {
     }
     signingConfigs {
         debug {
-            // 仓库内置固定签名：任何机器/CI 构建的 APK 签名一致，才能覆盖安装
-            storeFile file('../web2app.keystore')
-            storePassword 'web2app123'
-            keyAlias 'web2app'
-            keyPassword 'web2app123'
+            // 签名密钥不入库：CI 从 GitHub Secrets 解密还原到 ../web2app.keystore，
+            // 密码等参数走环境变量（带旧值兜底，方便本地自备密钥文件构建）
+            storeFile file(System.getenv('ANDROID_KEYSTORE_FILE') ?: '../web2app.keystore')
+            storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: 'web2app123'
+            keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'web2app'
+            keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: 'web2app123'
         }
     }
     buildTypes {
