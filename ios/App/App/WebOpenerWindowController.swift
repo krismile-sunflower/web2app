@@ -86,7 +86,7 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            webView.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor),
 
             progressView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
             progressView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
