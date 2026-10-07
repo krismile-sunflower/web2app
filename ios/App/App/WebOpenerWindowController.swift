@@ -14,6 +14,8 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
     private var titleLabel: UILabel?
     private var backBtn: UIButton?
     private var forwardBtn: UIButton?
+    private var progressView: UIProgressView?
+    private var spinner: UIActivityIndicatorView?
     private var observations: [NSKeyValueObservation] = []
     private var pullArmed = false
 
@@ -37,16 +39,22 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         }
         // 显式持久化数据存储：cookie / localStorage 跨次打开保留，登录态不丢
         configuration.websiteDataStore = .default()
+
+        let themeColor = options.themeColor.flatMap(Self.color(from:))
+        let tintColor: UIColor = themeColor.map { _ in .white } ?? UIColor { $0.userInterfaceStyle == .dark ? .white : .systemBlue }
+        let toolbarColor = themeColor ?? UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1) : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1) }
+
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
         if let ua = options.userAgent, !ua.isEmpty {
             webView.customUserAgent = ua
         }
+        // 页面渲染前不闪白/黑屏：WebView 透明，透出下方主题色底
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+        webView.underPageBackgroundColor = toolbarColor
         self.webView = webView
-
-        let themeColor = options.themeColor.flatMap(Self.color(from:))
-        let tintColor: UIColor = themeColor.map { _ in .white } ?? UIColor { $0.userInterfaceStyle == .dark ? .white : .systemBlue }
-        let toolbarColor = themeColor ?? UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1) : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1) }
 
         let backButton = UIButton(type: .system)
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
@@ -83,6 +91,16 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         closeButton.tintColor = tintColor
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
+        let progressView = UIProgressView(progressViewStyle: .bar)
+        progressView.trackTintColor = .clear
+        progressView.progressTintColor = themeColor != nil ? .white : tintColor
+        progressView.progress = 0
+        progressView.isHidden = true
+
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.color = tintColor
+        spinner.hidesWhenStopped = true
+
         let titleHolder = UIView()
         titleHolder.addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -98,9 +116,13 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         let container = UIView()
         container.backgroundColor = toolbarColor
         container.addSubview(toolbar)
+        container.addSubview(progressView)
         container.addSubview(webView)
+        container.addSubview(spinner)
         toolbar.translatesAutoresizingMaskIntoConstraints = false
+        progressView.translatesAutoresizingMaskIntoConstraints = false
         webView.translatesAutoresizingMaskIntoConstraints = false
+        spinner.translatesAutoresizingMaskIntoConstraints = false
 
         let rootViewController = UIViewController()
         rootViewController.view = container
@@ -109,6 +131,8 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         window.rootViewController = rootViewController
         window.backgroundColor = toolbarColor
         self.window = window
+        self.progressView = progressView
+        self.spinner = spinner
 
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
@@ -116,10 +140,17 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             toolbar.heightAnchor.constraint(equalToConstant: 50),
 
-            webView.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            progressView.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            progressView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            progressView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
+            webView.topAnchor.constraint(equalTo: progressView.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+
+            spinner.centerXAnchor.constraint(equalTo: webView.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: webView.centerYAnchor),
 
             titleLabel.centerXAnchor.constraint(equalTo: titleHolder.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: titleHolder.centerYAnchor),
@@ -161,6 +192,13 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
                 }
             }
         })
+        observations.append(webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
+            DispatchQueue.main.async {
+                guard let progressView = self?.progressView else { return }
+                progressView.isHidden = webView.estimatedProgress >= 1.0
+                progressView.setProgress(Float(webView.estimatedProgress), animated: true)
+            }
+        })
 
         backBtn?.isEnabled = false
         backBtn?.alpha = 0.35
@@ -173,9 +211,12 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
     func dismiss() {
         guard window != nil else { return }
         observations.removeAll()
+        spinner?.stopAnimating()
         window?.isHidden = true
         window = nil
         webView = nil
+        progressView = nil
+        spinner = nil
         onClose()
     }
 
@@ -223,6 +264,31 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             webView.load(navigationAction.request)
         }
         return nil
+    }
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        spinner?.startAnimating()
+        progressView?.isHidden = false
+        progressView?.setProgress(0.05, animated: false)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        spinner?.stopAnimating()
+        progressView?.setProgress(1.0, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.progressView?.isHidden = true
+            self?.progressView?.setProgress(0, animated: false)
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        spinner?.stopAnimating()
+        progressView?.isHidden = true
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        spinner?.stopAnimating()
+        progressView?.isHidden = true
     }
 
     private static func color(from hex: String) -> UIColor? {
