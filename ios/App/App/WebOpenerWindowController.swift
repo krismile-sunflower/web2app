@@ -11,8 +11,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
 
     private var window: UIWindow?
     private var webView: WKWebView?
-    private var titleLabel: UILabel?
-    private var backBtn: UIButton?
     private var progressView: UIProgressView?
     private var spinner: UIActivityIndicatorView?
     private var observations: [NSKeyValueObservation] = []
@@ -55,25 +53,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         webView.underPageBackgroundColor = toolbarColor
         self.webView = webView
 
-        let backButton = UIButton(type: .system)
-        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        backButton.tintColor = tintColor
-        backButton.addTarget(self, action: #selector(goBackTapped), for: .touchUpInside)
-        backBtn = backButton
-
-        let titleLabel = UILabel()
-        titleLabel.text = options.title
-        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        titleLabel.textColor = tintColor
-        titleLabel.textAlignment = .center
-        titleLabel.numberOfLines = 1
-        self.titleLabel = titleLabel
-
-        let closeButton = UIButton(type: .system)
-        closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-        closeButton.tintColor = tintColor
-        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-
         let progressView = UIProgressView(progressViewStyle: .bar)
         progressView.trackTintColor = .clear
         progressView.progressTintColor = themeColor != nil ? .white : tintColor
@@ -84,25 +63,11 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         spinner.color = tintColor
         spinner.hidesWhenStopped = true
 
-        let titleHolder = UIView()
-        titleHolder.addSubview(titleLabel)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let toolbar = UIStackView(arrangedSubviews: [backButton, titleHolder, closeButton])
-        toolbar.axis = .horizontal
-        toolbar.alignment = .center
-        toolbar.spacing = 18
-        toolbar.layoutMargins = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        toolbar.isLayoutMarginsRelativeArrangement = true
-        toolbar.backgroundColor = toolbarColor
-
         let container = UIView()
         container.backgroundColor = toolbarColor
-        container.addSubview(toolbar)
-        container.addSubview(progressView)
         container.addSubview(webView)
+        container.addSubview(progressView)
         container.addSubview(spinner)
-        toolbar.translatesAutoresizingMaskIntoConstraints = false
         progressView.translatesAutoresizingMaskIntoConstraints = false
         webView.translatesAutoresizingMaskIntoConstraints = false
         spinner.translatesAutoresizingMaskIntoConstraints = false
@@ -118,27 +83,17 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         self.spinner = spinner
 
         NSLayoutConstraint.activate([
-            toolbar.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
-            toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 50),
-
-            progressView.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
-            progressView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            progressView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-
-            webView.topAnchor.constraint(equalTo: progressView.bottomAnchor),
+            webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
 
+            progressView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+            progressView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            progressView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+
             spinner.centerXAnchor.constraint(equalTo: webView.centerXAnchor),
             spinner.centerYAnchor.constraint(equalTo: webView.centerYAnchor),
-
-            titleLabel.centerXAnchor.constraint(equalTo: titleHolder.centerXAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: titleHolder.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: titleHolder.leadingAnchor, constant: 8),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: titleHolder.trailingAnchor, constant: -8),
         ])
 
         window.makeKeyAndVisible()
@@ -151,14 +106,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         rightEdge.edges = .right
         container.addGestureRecognizer(rightEdge)
 
-        observations.append(webView.observe(\.title, options: [.new]) { [weak self] webView, _ in
-            let title = webView.title
-            self?.titleLabel?.text = (title?.isEmpty == false) ? title : self?.options.title
-        })
-        observations.append(webView.observe(\.canGoBack, options: [.new]) { [weak self] webView, _ in
-            self?.backBtn?.isEnabled = webView.canGoBack
-            self?.backBtn?.alpha = webView.canGoBack ? 1 : 0.35
-        })
         observations.append(webView.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scrollView, _ in
             guard let self else { return }
             if scrollView.isTracking && scrollView.contentOffset.y < -70 {
@@ -179,9 +126,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             }
         })
 
-        backBtn?.isEnabled = false
-        backBtn?.alpha = 0.35
-
         webView.load(URLRequest(url: url))
     }
 
@@ -197,14 +141,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         onClose()
     }
 
-    @objc private func goBackTapped() {
-        if webView?.canGoBack == true {
-            webView?.goBack()
-        } else {
-            dismiss()
-        }
-    }
-
     @objc private func edgeSwiped(_ gesture: UIScreenEdgePanGestureRecognizer) {
         guard gesture.state == .began else { return }
         if gesture.edges == .left {
@@ -216,10 +152,6 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         } else if webView?.canGoForward == true {
             webView?.goForward()
         }
-    }
-
-    @objc private func closeTapped() {
-        dismiss()
     }
 
     // target=_blank 的链接在当前 WebView 内打开
