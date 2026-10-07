@@ -53,7 +53,7 @@ jobs:
         run: |
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest web2app.apk "web2app-1.0.${{ github.run_number }}.apk" \
-            --title "Web2App 1.0.${{ github.run_number }}" \
+            --title "网页盒子 1.0.${{ github.run_number }}" \
             --notes "版本 1.0.${{ github.run_number }}（build ${{ github.run_number }}），自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。
           versionCode 随构建号递增，可直接覆盖安装，无需卸载旧版。
           固定下载链接：https://github.com/${{ github.repository }}/releases/latest/download/web2app.apk"

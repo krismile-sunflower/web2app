@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.webbox.app',
-  appName: 'Web2App',
+  appName: '网页盒子',
   webDir: 'dist',
 };
 

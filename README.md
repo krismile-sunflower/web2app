@@ -1,4 +1,4 @@
-# Web2App
+# 网页盒子 (Web2App)
 
 [![下载 Android APK](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-Android_APK-3DDC84?logo=android)](https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.apk)
 

@@ -40,7 +40,6 @@ class WebOpenerActivity : Activity() {
     private lateinit var refreshLayout: SwipeRefreshLayout
     private lateinit var titleView: TextView
     private lateinit var backBtn: Button
-    private lateinit var forwardBtn: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var spinner: ProgressBar
 
@@ -82,10 +81,6 @@ class WebOpenerActivity : Activity() {
             if (this@WebOpenerActivity::webView.isInitialized && webView.canGoBack()) webView.goBack() else finish()
         }
         backBtn = back
-        val forward = toolbarButton("›") {
-            if (this@WebOpenerActivity::webView.isInitialized && webView.canGoForward()) webView.goForward()
-        }
-        forwardBtn = forward
 
         titleView = TextView(this).apply {
             text = intent.getStringExtra(EXTRA_TITLE)
@@ -96,17 +91,6 @@ class WebOpenerActivity : Activity() {
             gravity = Gravity.CENTER
         }
 
-        val reload = toolbarButton("⟳") {
-            if (this@WebOpenerActivity::webView.isInitialized) webView.reload()
-        }
-        val external = toolbarButton("↗") {
-            val current = if (this@WebOpenerActivity::webView.isInitialized) webView.url ?: url else url
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(current)))
-            } catch (e: Exception) {
-                Toast.makeText(this@WebOpenerActivity, "无法打开外部浏览器", Toast.LENGTH_SHORT).show()
-            }
-        }
         val close = toolbarButton("✕") { finish() }
 
         val toolbar = LinearLayout(this).apply {
@@ -115,13 +99,10 @@ class WebOpenerActivity : Activity() {
             setBackgroundColor(baseColor)
             setPadding(dp(6), 0, dp(6), 0)
             addView(back)
-            addView(forward)
             addView(
                 titleView,
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             )
-            addView(reload)
-            addView(external)
             addView(close)
         }
 
@@ -149,8 +130,6 @@ class WebOpenerActivity : Activity() {
                 override fun doUpdateVisitedHistory(view: WebView, urlStr: String?, isReload: Boolean) {
                     back.isEnabled = view.canGoBack()
                     back.alpha = if (back.isEnabled) 1f else 0.4f
-                    forward.isEnabled = view.canGoForward()
-                    forward.alpha = if (forward.isEnabled) 1f else 0.4f
                 }
 
                 override fun onPageFinished(view: WebView, urlStr: String?) {
@@ -223,8 +202,6 @@ class WebOpenerActivity : Activity() {
 
         back.isEnabled = false
         back.alpha = 0.4f
-        forward.isEnabled = false
-        forward.alpha = 0.4f
 
         spinner.visibility = View.VISIBLE
         webView.loadUrl(url)
