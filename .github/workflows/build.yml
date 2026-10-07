@@ -9,6 +9,8 @@ jobs:
   android-apk:
     name: Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,10 +29,20 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+      - name: 重命名 APK（固定下载文件名）
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk web2app.apk
       - uses: actions/upload-artifact@v4
         with:
           name: web2app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: web2app.apk
+      - name: 发布到 Releases（滚动更新 latest）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest web2app.apk \
+            --title "Web2App 最新版" \
+            --notes "自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。debug 签名，下载后直接安装。固定下载链接：https://github.com/${{ github.repository }}/releases/latest/download/web2app.apk"
 
   ios-build:
     name: iOS 编译校验（模拟器）

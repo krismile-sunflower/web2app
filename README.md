@@ -1,8 +1,20 @@
 # Web2App
 
+[![下载 Android APK](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-Android_APK-3DDC84?logo=android)](https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.apk)
+
 把网页变成你手机上的 app：一个移动端管理器，集中管理你的常用网页，点开后用全屏原生 WebView 打开——没有地址栏、没有标签栏，每个网页用起来就像一个独立 app。纯自用工具，所有数据只保存在本机。
 
 技术栈：**Capacitor 8 + React 19 + TypeScript + Vite + zustand**。
+
+## 下载安装
+
+**Android**（推荐，链接永远指向最新构建）：
+
+```
+https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.apk
+```
+
+每次推送到 main 都会自动重新构建并更新这个安装包，也可以在仓库的 [Releases](https://github.com/krismile-sunflower/web2app/releases) 页面下载。
 
 ## 功能
 
@@ -40,7 +52,7 @@ npm run ios        # 自动：构建 → 同步 → 编译 → 启动模拟器 �
 
 推送到 `main`（或手动触发 workflow_dispatch）即运行 `.github/workflows/build.yml`：
 
-- **android-apk**：产出 `app-debug.apk` 构建产物，直接下载安装即可
+- **android-apk**：构建 APK 并自动发布到 Releases（滚动更新 `latest`），固定下载链接见上方「下载安装」
 - **ios-build**：模拟器构建，校验 Swift 插件可编译，并产出 `.app` 产物
 
 ## 架构说明
