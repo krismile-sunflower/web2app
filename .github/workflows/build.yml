@@ -57,6 +57,15 @@ jobs:
             --notes "版本 1.0.${{ github.run_number }}（build ${{ github.run_number }}），自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。
           versionCode 随构建号递增，可直接覆盖安装，无需卸载旧版。
           固定下载链接：https://github.com/${{ github.repository }}/releases/latest/download/web2app.apk"
+      - name: 确保 Release 已发布（草稿会导致固定链接 404）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit latest --draft=false
+          if [ "$(gh release view latest --json isDraft --jq .isDraft)" != "false" ]; then
+            echo "::error::Release 仍是草稿状态，固定下载链接会 404"
+            exit 1
+          fi
 
   ios-build:
     name: iOS 编译校验（模拟器）
