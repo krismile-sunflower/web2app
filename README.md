@@ -16,6 +16,8 @@ https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.a
 
 每次推送到 main 都会自动重新构建并更新这个安装包，也可以在仓库的 [Releases](https://github.com/krismile-sunflower/web2app/releases) 页面下载。
 
+**版本号与覆盖安装**：`versionCode` 使用 CI 构建号自动递增（versionName 形如 `1.0.<构建号>`），且所有构建使用仓库内置的同一签名密钥，新 APK 可直接覆盖安装，无需卸载旧版。
+
 ## 功能
 
 - 网页管理：添加 / 编辑 / 删除，favicon 自动抓取（站点 favicon.ico → DuckDuckGo 兜底，可手动指定）
