@@ -15,6 +15,9 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 /// 全屏 WebView 页面（无工具栏）：纯手势导航——系统返回手势/返回键 = 网页内后退，
@@ -139,7 +142,17 @@ class WebOpenerActivity : Activity() {
         }
 
         setContentView(root)
-        window.statusBarColor = baseColor
+
+        // 安全区：内容避开状态栏/刘海与手势条，系统栏区域透出主题色底。
+        // Android 15 强制 edge-to-edge，必须手动消费 insets
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
 
         spinner.visibility = View.VISIBLE
         webView.loadUrl(url)
