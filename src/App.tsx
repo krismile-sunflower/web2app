@@ -4,7 +4,8 @@ import { GearIcon, PlusIcon, SearchIcon } from './components/icons';
 import { SiteCard } from './components/SiteCard';
 import { SiteEditor } from './components/SiteEditor';
 import { SettingsSheet } from './components/SettingsSheet';
-import { openSite } from './plugins/webopener';
+import { applyWebColorScheme, openSite } from './plugins/webopener';
+import { applyDocumentTheme, resolveAppTheme, webColorScheme, type ColorScheme } from './settings';
 import { useStore } from './store';
 import type { Site } from './types';
 
@@ -18,17 +19,38 @@ type Modal =
 export default function App() {
   const ready = useStore((s) => s.ready);
   const sites = useStore((s) => s.sites);
+  const settings = useStore((s) => s.settings);
   const moveWithinSection = useStore((s) => s.moveWithinSection);
 
   const [modal, setModal] = useState<Modal>(null);
   const [query, setQuery] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
+  const [resolvedAppTheme, setResolvedAppTheme] = useState<'light' | 'dark'>(() =>
+    resolveAppTheme(settings.appTheme),
+  );
   const startRef = useRef({ x: 0, y: 0 });
   const movedRef = useRef(false);
 
   useEffect(() => {
     void useStore.getState().init();
   }, []);
+
+  // 把应用主题写到 <html> 驱动 CSS 变量；「跟随系统」时监听系统主题变化
+  useEffect(() => {
+    const sync = () => setResolvedAppTheme(applyDocumentTheme(settings.appTheme));
+    sync();
+    if (settings.appTheme !== 'system') return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => sync();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [settings.appTheme]);
+
+  // 主题与网页配色联动：设置或系统主题变化时，实时下发给已打开的原生 WebView
+  const webScheme: ColorScheme = webColorScheme(settings, resolvedAppTheme);
+  useEffect(() => {
+    void applyWebColorScheme(webScheme);
+  }, [webScheme]);
 
   // 长按进入拖拽：移动超过 12px 才算拖动，否则松手弹操作菜单
   useEffect(() => {

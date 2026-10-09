@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import { Preferences } from '@capacitor/preferences';
+import { DEFAULT_SETTINGS, sanitizeSettings, type AppSettings } from './settings';
 import type { Site } from './types';
 
 const STORAGE_KEY = 'web2app.sites.v1';
+const SETTINGS_KEY = 'web2app.settings.v1';
 
 interface AppState {
   ready: boolean;
   sites: Site[];
+  settings: AppSettings;
   init: () => Promise<void>;
   addSite: (s: Omit<Site, 'id' | 'createdAt'>) => Site;
   updateSite: (id: string, patch: Partial<Omit<Site, 'id'>>) => void;
@@ -15,10 +18,15 @@ interface AppState {
   /** 在同一分区内拖拽排序（置顶同理）；跨分区调用会被忽略 */
   moveWithinSection: (fromId: string, toId: string) => void;
   replaceAll: (sites: Site[]) => void;
+  updateSettings: (patch: Partial<AppSettings>) => void;
 }
 
 async function persist(sites: Site[]) {
   await Preferences.set({ key: STORAGE_KEY, value: JSON.stringify(sites) });
+}
+
+async function persistSettings(settings: AppSettings) {
+  await Preferences.set({ key: SETTINGS_KEY, value: JSON.stringify(settings) });
 }
 
 export function newId(): string {
@@ -60,9 +68,13 @@ export function sanitizeSites(input: unknown): Site[] | null {
 export const useStore = create<AppState>((set, get) => ({
   ready: false,
   sites: [],
+  settings: DEFAULT_SETTINGS,
 
   init: async () => {
-    const { value } = await Preferences.get({ key: STORAGE_KEY });
+    const [{ value }, { value: settingsValue }] = await Promise.all([
+      Preferences.get({ key: STORAGE_KEY }),
+      Preferences.get({ key: SETTINGS_KEY }),
+    ]);
     let sites: Site[] = [];
     if (value) {
       try {
@@ -71,7 +83,15 @@ export const useStore = create<AppState>((set, get) => ({
         sites = [];
       }
     }
-    set({ sites, ready: true });
+    let settings = DEFAULT_SETTINGS;
+    if (settingsValue) {
+      try {
+        settings = sanitizeSettings(JSON.parse(settingsValue));
+      } catch {
+        settings = DEFAULT_SETTINGS;
+      }
+    }
+    set({ sites, settings, ready: true });
   },
 
   addSite: (s) => {
@@ -117,5 +137,11 @@ export const useStore = create<AppState>((set, get) => ({
   replaceAll: (sites) => {
     set({ sites });
     void persist(sites);
+  },
+
+  updateSettings: (patch) => {
+    const settings = { ...get().settings, ...patch };
+    set({ settings });
+    void persistSettings(settings);
   },
 }));

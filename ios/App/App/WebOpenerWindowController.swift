@@ -11,10 +11,13 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
 
     private var window: UIWindow?
     private var webView: WKWebView?
+    private var container: UIView?
     private var progressView: UIProgressView?
     private var spinner: UIActivityIndicatorView?
     private var observations: [NSKeyValueObservation] = []
     private var pullArmed = false
+    /// 当前生效的配色方案（light / dark / system），供实时联动去重
+    private var colorScheme: String?
 
     init(url: URL, options: WebOpenerOptions, onClose: @escaping () -> Void) {
         self.url = url
@@ -37,12 +40,17 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         // 显式持久化数据存储：cookie / localStorage 跨次打开保留，登录态不丢
         configuration.websiteDataStore = .default()
 
+        // 强制网页配色：overrideUserInterfaceStyle 决定页面内 prefers-color-scheme 的取值
+        let interfaceStyle = Self.interfaceStyle(from: options.colorScheme)
+        self.colorScheme = options.colorScheme ?? "system"
+
         let themeColor = options.themeColor.flatMap(Self.color(from:))
-        let tintColor: UIColor = themeColor.map { _ in .white } ?? UIColor { $0.userInterfaceStyle == .dark ? .white : .systemBlue }
-        let toolbarColor = themeColor ?? UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1) : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1) }
+        let toolbarColor = themeColor ?? Self.defaultChromeColor
+        let tintColor: UIColor = themeColor != nil ? .white : Self.defaultTintColor
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
+        webView.overrideUserInterfaceStyle = interfaceStyle
         if let ua = options.userAgent, !ua.isEmpty {
             webView.customUserAgent = ua
         }
@@ -55,7 +63,7 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
 
         let progressView = UIProgressView(progressViewStyle: .bar)
         progressView.trackTintColor = .clear
-        progressView.progressTintColor = themeColor != nil ? .white : tintColor
+        progressView.progressTintColor = tintColor
         progressView.progress = 0
         progressView.isHidden = true
 
@@ -65,6 +73,7 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
 
         let container = UIView()
         container.backgroundColor = toolbarColor
+        container.overrideUserInterfaceStyle = interfaceStyle
         container.addSubview(webView)
         container.addSubview(progressView)
         container.addSubview(spinner)
@@ -78,7 +87,9 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         let window = UIWindow(windowScene: scene)
         window.rootViewController = rootViewController
         window.backgroundColor = toolbarColor
+        window.overrideUserInterfaceStyle = interfaceStyle
         self.window = window
+        self.container = container
         self.progressView = progressView
         self.spinner = spinner
 
@@ -136,9 +147,34 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
         window?.isHidden = true
         window = nil
         webView = nil
+        container = nil
         progressView = nil
         spinner = nil
         onClose()
+    }
+
+    /// 应用切换主题时实时更新已打开网页的配色
+    func applyColorScheme(_ scheme: String?) {
+        let normalized = scheme ?? "system"
+        if colorScheme == normalized { return }
+        colorScheme = normalized
+        let style = Self.interfaceStyle(from: normalized)
+        webView?.overrideUserInterfaceStyle = style
+        container?.overrideUserInterfaceStyle = style
+        window?.overrideUserInterfaceStyle = style
+        refreshChromeColors()
+    }
+
+    /// 按当前配色重绘原生 chrome（进度条 / 加载指示器 / 底色）
+    private func refreshChromeColors() {
+        let themeColor = options.themeColor.flatMap(Self.color(from:))
+        let chrome = themeColor ?? Self.defaultChromeColor
+        container?.backgroundColor = chrome
+        window?.backgroundColor = chrome
+        webView?.underPageBackgroundColor = chrome
+        let tint: UIColor = themeColor != nil ? .white : Self.defaultTintColor
+        progressView?.progressTintColor = tint
+        spinner?.color = tint
     }
 
     @objc private func edgeSwiped(_ gesture: UIScreenEdgePanGestureRecognizer) {
@@ -197,5 +233,26 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             blue: CGFloat(rgb & 0xFF) / 255,
             alpha: 1
         )
+    }
+
+    /// 配色方案 → 界面风格；system / nil = 跟随系统
+    private static func interfaceStyle(from scheme: String?) -> UIUserInterfaceStyle {
+        switch scheme {
+        case "dark": return .dark
+        case "light": return .light
+        default: return .unspecified
+        }
+    }
+
+    /// 无站点主题色时的原生 chrome 底色（随深浅色动态解析）
+    private static let defaultChromeColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
+            : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+    }
+
+    /// 无站点主题色时的强调色（随深浅色动态解析）
+    private static let defaultTintColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .white : .systemBlue
     }
 }
