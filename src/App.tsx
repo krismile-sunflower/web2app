@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActionSheet, ConfirmDialog, type ActionItem } from './components/ActionSheet';
-import { GearIcon, PlusIcon, SearchIcon } from './components/icons';
+import { GearIcon, LaunchIcon, PlusIcon, SearchIcon } from './components/icons';
+import { SceneSheet } from './components/SceneSheet';
 import { SiteCard } from './components/SiteCard';
 import { SiteEditor } from './components/SiteEditor';
 import { SettingsSheet } from './components/SettingsSheet';
-import { applyWebColorScheme, openSite } from './plugins/webopener';
+import { applyWebColorScheme, openScene, openSite } from './plugins/webopener';
 import { applyDocumentTheme, resolveAppTheme, webColorScheme, type ColorScheme } from './settings';
 import { useStore } from './store';
-import type { Site } from './types';
+import { sceneSites, withSceneOverrides, UNGROUPED, type Site } from './types';
 
 type Modal =
   | { kind: 'editor'; site?: Site }
   | { kind: 'settings' }
+  | { kind: 'scenes' }
   | { kind: 'actions'; site: Site }
   | { kind: 'confirm'; site: Site }
   | null;
@@ -20,11 +22,16 @@ export default function App() {
   const ready = useStore((s) => s.ready);
   const sites = useStore((s) => s.sites);
   const settings = useStore((s) => s.settings);
+  const scenes = useStore((s) => s.scenes);
+  const activeSceneId = useStore((s) => s.activeSceneId);
+  const setActiveScene = useStore((s) => s.setActiveScene);
   const moveWithinSection = useStore((s) => s.moveWithinSection);
 
   const [modal, setModal] = useState<Modal>(null);
   const [query, setQuery] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [launching, setLaunching] = useState(false);
   const [resolvedAppTheme, setResolvedAppTheme] = useState<'light' | 'dark'>(() =>
     resolveAppTheme(settings.appTheme),
   );
@@ -51,6 +58,14 @@ export default function App() {
   useEffect(() => {
     void applyWebColorScheme(webScheme);
   }, [webScheme]);
+
+  // 内容滚动后给顶栏加一条分隔线（顶栏为半透明毛玻璃）
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // 长按进入拖拽：移动超过 12px 才算拖动，否则松手弹操作菜单
   useEffect(() => {
@@ -82,15 +97,29 @@ export default function App() {
     };
   }, [dragId, moveWithinSection]);
 
+  // 场景：叠加在站点之上的过滤层；null = 全部。
+  // 覆盖（UA / 主题色 / 注入脚本）在过滤之后应用，只影响呈现与打开参数，不写回站点
+  const activeScene = scenes.find((s) => s.id === activeSceneId) ?? null;
+  const sceneFiltered = activeScene ? sceneSites(activeScene, sites) : sites;
+  const visibleSites = sceneFiltered.map((s) => withSceneOverrides(s, activeScene));
+
+  // 操作菜单拿到的是覆盖后的副本，编辑/删除必须回退到原始站点，避免把覆盖值写进站点自身
+  const originalOf = (site: Site) => sites.find((s) => s.id === site.id) ?? site;
+
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? sites.filter((s) => [s.name, s.url, s.group].some((v) => v.toLowerCase().includes(q)))
-    : sites;
+    ? visibleSites.filter((s) => [s.name, s.url, s.group].some((v) => v.toLowerCase().includes(q)))
+    : visibleSites;
+
+  // 顶栏元信息：当前场景内的站点数与分组数（不受搜索影响）
+  const groupCount = new Set(
+    visibleSites.filter((s) => !s.pinned).map((s) => s.group || UNGROUPED),
+  ).size;
 
   const pinned = filtered.filter((s) => s.pinned);
   const groups: { name: string; sites: Site[] }[] = [];
   for (const s of filtered.filter((s) => !s.pinned)) {
-    const name = s.group || '未分组';
+    const name = s.group || UNGROUPED;
     let g = groups.find((x) => x.name === name);
     if (!g) {
       g = { name, sites: [] };
@@ -109,11 +138,25 @@ export default function App() {
     },
   };
 
+  // 一键打开：把当前场景里的全部站点交给原生多标签容器
+  const launchScene = async () => {
+    if (!activeScene || visibleSites.length === 0 || launching) return;
+    setLaunching(true);
+    try {
+      await openScene(visibleSites);
+    } finally {
+      setLaunching(false);
+    }
+  };
+
   const actionItems: ActionItem[] =
     modal?.kind === 'actions'
       ? [
           { label: '打开', onPress: () => void openSite(modal.site) },
-          { label: '编辑', onPress: () => setModal({ kind: 'editor', site: modal.site }) },
+          {
+            label: '编辑',
+            onPress: () => setModal({ kind: 'editor', site: originalOf(modal.site) }),
+          },
           {
             label: modal.site.pinned ? '取消置顶' : '置顶',
             onPress: () => useStore.getState().togglePin(modal.site.id),
@@ -121,7 +164,7 @@ export default function App() {
           {
             label: '删除',
             destructive: true,
-            onPress: () => setModal({ kind: 'confirm', site: modal.site }),
+            onPress: () => setModal({ kind: 'confirm', site: originalOf(modal.site) }),
           },
         ]
       : [];
@@ -130,12 +173,9 @@ export default function App() {
 
   return (
     <div className="screen">
-      <header className="topbar">
+      <header className={`topbar${scrolled ? ' scrolled' : ''}`}>
         <div className="topbar-row">
-          <div className="topbar-title">
-            <h1>网页盒子</h1>
-            <span className="topbar-count">{sites.length} 个网页</span>
-          </div>
+          <h1 className="topbar-title">网页盒子</h1>
           <div className="topbar-actions">
             <button
               className="icon-btn"
@@ -152,6 +192,60 @@ export default function App() {
               <PlusIcon />
             </button>
           </div>
+        </div>
+        <p className="topbar-meta">
+          <span>{visibleSites.length} 个网页</span>
+          {groupCount > 0 && (
+            <>
+              <span className="meta-dot" aria-hidden="true">
+                ·
+              </span>
+              <span>{groupCount} 个分组</span>
+            </>
+          )}
+          {activeScene && visibleSites.length > 0 && (
+            <button
+              type="button"
+              className="launch-btn"
+              disabled={launching}
+              onClick={() => void launchScene()}
+            >
+              <LaunchIcon size={13} />
+              <span>{launching ? '正在打开…' : '打开全部'}</span>
+            </button>
+          )}
+        </p>
+        <div className="scene-bar" role="tablist" aria-label="场景">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSceneId === null}
+            className={`chip${activeSceneId === null ? ' active' : ''}`}
+            onClick={() => setActiveScene(null)}
+          >
+            全部
+          </button>
+          {scenes.map((sc) => (
+            <button
+              key={sc.id}
+              type="button"
+              role="tab"
+              aria-selected={activeSceneId === sc.id}
+              className={`chip${activeSceneId === sc.id ? ' active' : ''}`}
+              onClick={() => setActiveScene(sc.id)}
+            >
+              {sc.name}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="chip add"
+            aria-label="管理场景"
+            onClick={() => setModal({ kind: 'scenes' })}
+          >
+            <PlusIcon size={13} />
+            场景
+          </button>
         </div>
         <div className="searchbar">
           <SearchIcon />
@@ -184,7 +278,13 @@ export default function App() {
               <Section key={g.name} title={g.name} sites={g.sites} {...cardProps} />
             ))}
             {pinned.length + groups.reduce((n, g) => n + g.sites.length, 0) === 0 && (
-              <p className="empty-search">没有匹配「{query}」的网页</p>
+              <p className="empty-search">
+                {q
+                  ? `没有匹配「${query}」的网页`
+                  : activeScene
+                    ? `「${activeScene.name}」场景里还没有站点`
+                    : '没有可显示的网页'}
+              </p>
             )}
           </>
         )}
@@ -196,7 +296,12 @@ export default function App() {
         onClose={() => setModal(null)}
         onDelete={(site) => setModal({ kind: 'confirm', site })}
       />
-      <SettingsSheet open={modal?.kind === 'settings'} onClose={() => setModal(null)} />
+      <SettingsSheet
+        open={modal?.kind === 'settings'}
+        onClose={() => setModal(null)}
+        onManageScenes={() => setModal({ kind: 'scenes' })}
+      />
+      <SceneSheet open={modal?.kind === 'scenes'} onClose={() => setModal(null)} />
       <ActionSheet
         open={modal?.kind === 'actions'}
         items={actionItems}
