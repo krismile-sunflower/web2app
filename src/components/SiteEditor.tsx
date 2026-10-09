@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import {
   hostOf,
+  normalizeGroup,
   normalizeUrl,
   THEME_COLORS,
   type Site,
@@ -19,7 +20,8 @@ interface SiteEditorProps {
 
 export function SiteEditor({ open, site, onClose, onDelete }: SiteEditorProps) {
   const sites = useStore((s) => s.sites);
-  const groups = [...new Set(sites.map((x) => x.group).filter(Boolean))];
+  // 只把「真实分组」当作快捷选项：未分组是空分组在界面上的显示名，不是可勾选的分组
+  const groupChips = [...new Set(sites.map((x) => normalizeGroup(x.group)).filter(Boolean))];
 
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
@@ -41,7 +43,7 @@ export function SiteEditor({ open, site, onClose, onDelete }: SiteEditorProps) {
       setName(site?.name ?? '');
       setNameTouched(Boolean(site));
       setIcon(site?.icon ?? '');
-      setGroup(site?.group ?? '');
+      setGroup(normalizeGroup(site?.group ?? ''));
       setUa(site?.ua ?? 'default');
       setCustomUa(site?.customUa ?? '');
       setThemeColor(site?.themeColor ?? '');
@@ -70,7 +72,7 @@ export function SiteEditor({ open, site, onClose, onDelete }: SiteEditorProps) {
       url: norm,
       name: name.trim() || hostOf(norm),
       icon: icon.trim() || undefined,
-      group: group.trim(),
+      group: normalizeGroup(group),
       pinned: site?.pinned ?? false,
       ua,
       customUa: ua === 'custom' ? customUa.trim() : undefined,
@@ -129,14 +131,14 @@ export function SiteEditor({ open, site, onClose, onDelete }: SiteEditorProps) {
             className="form-input"
             type="text"
             autoComplete="off"
-            placeholder="未分组"
+            placeholder="留空即未分组"
             value={group}
             onChange={(e) => setGroup(e.target.value)}
           />
         </div>
-        {groups.length > 0 && (
+        {groupChips.length > 0 && (
           <div className="chip-row indented">
-            {groups.map((g) => (
+            {groupChips.map((g) => (
               <button
                 key={g}
                 type="button"

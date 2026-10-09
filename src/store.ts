@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Preferences } from '@capacitor/preferences';
 import { DEFAULT_SETTINGS, sanitizeSettings, type AppSettings } from './settings';
-import { hasOverrides, type Scene, type SceneOverrides, type Site } from './types';
+import { hasOverrides, normalizeGroup, type Scene, type SceneOverrides, type Site } from './types';
 
 const STORAGE_KEY = 'web2app.sites.v1';
 const SETTINGS_KEY = 'web2app.settings.v1';
@@ -77,7 +77,8 @@ export function sanitizeSites(input: unknown): Site[] | null {
       url,
       name: typeof r.name === 'string' && r.name.trim() ? r.name.trim() : url,
       icon: typeof r.icon === 'string' ? r.icon : undefined,
-      group: typeof r.group === 'string' ? r.group : '',
+      // 字面量「未分组」归一化为空：它是空分组的显示名，不能同时被用户当成真实分组名
+      group: typeof r.group === 'string' ? normalizeGroup(r.group) : '',
       pinned: r.pinned === true,
       ua: r.ua === 'desktop' || r.ua === 'custom' ? r.ua : 'default',
       customUa: typeof r.customUa === 'string' ? r.customUa : undefined,
@@ -204,7 +205,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addSite: (s) => {
-    const site: Site = { ...s, id: newId(), createdAt: Date.now() };
+    const site: Site = { ...s, group: normalizeGroup(s.group), id: newId(), createdAt: Date.now() };
     const sites = [...get().sites, site];
     set({ sites });
     void persistSites(sites);
@@ -212,7 +213,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateSite: (id, patch) => {
-    const sites = get().sites.map((s) => (s.id === id ? { ...s, ...patch } : s));
+    const next = patch.group === undefined ? patch : { ...patch, group: normalizeGroup(patch.group) };
+    const sites = get().sites.map((s) => (s.id === id ? { ...s, ...next } : s));
     set({ sites });
     void persistSites(sites);
   },
