@@ -25,6 +25,7 @@ https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.a
 - 搜索：按名称 / 网址 / 分组实时过滤
 - 每页 UA 切换：默认（移动）/ 桌面版 / 自定义
 - 每页主题色：卡片磁贴与原生工具栏着色
+- 主题联动：应用外观可切换（跟随系统 / 浅色 / 深色），内嵌网页自动套用对应配色；设置里可开关该同步并选择网页配色（跟随应用 / 强制浅色 / 强制深色），切换主题时已打开的网页实时联动
 - 注入脚本：打开页面时执行自定义 JS（如隐藏广告浮层）
 - 数据导出 / 导入：JSON 格式，可备份或迁移设备
 - 原生 WebView 打开页：无工具栏全屏沉浸，纯手势导航（左缘滑 / 系统返回 = 网页内有历史先网页内后退，到根再操作退出回首页；iOS 右缘滑 = 前进）、下拉刷新、加载进度条 + 主题色加载背景（无白/黑屏闪烁）
@@ -61,15 +62,18 @@ npm run ios        # 自动：构建 → 同步 → 编译 → 启动模拟器 �
 
 ```
 src/                      管理界面（React）
-  store.ts                zustand + @capacitor/preferences 本地持久化
-  plugins/webopener.ts    WebOpener 插件 JS 侧（Web 端兜底 window.open）
+  store.ts                zustand + @capacitor/preferences 本地持久化（站点 + 设置）
+  settings.ts             外观/主题设置模型与解析（应用主题 → 网页配色方案）
+  plugins/webopener.ts    WebOpener 插件 JS 侧（Web 端兜底 window.open；含 setColorScheme 实时下发）
   components/             卡片网格 / 编辑抽屉 / 设置 / 操作菜单
 ios/App/App/
   MainViewController.swift   capacitorDidLoad 里注册本地插件
-  WebOpenerPlugin.swift      插件入口（open/close）
+  WebOpenerPlugin.swift      插件入口（open/close/setColorScheme）
   WebOpenerWindowController.swift  全屏 WKWebView + 工具栏 + 下拉刷新
 android/.../WebOpenerPlugin.kt / WebOpenerActivity.kt   Android 对应实现
 ```
+
+网页配色联动实现：iOS 用 `WKWebView.overrideUserInterfaceStyle`、Android 用 AppCompat `localNightMode`（决定主题 `isLightTheme`，进而决定 WebView 的 `prefers-color-scheme`），另在 Android 打开算法变暗兜底未适配深色的网页。
 
 两个平台的自绘 WebView 都是手写的本地插件（Capacitor 8 的 `packageClassList` 会覆盖手工注册，所以 iOS 侧走 `registerPluginInstance`，Android 侧在 `MainActivity.onCreate` 里 `registerPlugin`）。
 

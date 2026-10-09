@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { THEME_MODE_OPTIONS, WEB_THEME_OPTIONS } from '../settings';
 import { sanitizeSites, useStore } from '../store';
 import { Sheet } from './Sheet';
 
@@ -9,6 +10,8 @@ interface SettingsSheetProps {
 
 export function SettingsSheet({ open, onClose }: SettingsSheetProps) {
   const sites = useStore((s) => s.sites);
+  const settings = useStore((s) => s.settings);
+  const updateSettings = useStore((s) => s.updateSettings);
   const [exported, setExported] = useState('');
   const [importText, setImportText] = useState('');
   const [msg, setMsg] = useState('');
@@ -58,6 +61,64 @@ export function SettingsSheet({ open, onClose }: SettingsSheetProps) {
   return (
     <Sheet open={open} title="设置" onClose={onClose}>
       <div className="form">
+        <section className="settings-group">
+          <h4>外观</h4>
+          <p className="settings-hint">
+            应用主题与内嵌网页的配色联动。修改后立即生效，已打开的网页会自动套用新配色。
+          </p>
+
+          <div className="form-row column">
+            <span className="form-label">应用主题</span>
+            <div className="segmented" role="tablist">
+              {THEME_MODE_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  role="tab"
+                  aria-selected={settings.appTheme === o.value}
+                  className={`segment${settings.appTheme === o.value ? ' on' : ''}`}
+                  onClick={() => updateSettings({ appTheme: o.value })}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="switch-row">
+            <span className="switch-text">
+              <span className="switch-title">网页跟随应用主题</span>
+              <span className="switch-desc">打开网页时自动套用当前主题配色（浅色 / 深色）</span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.syncWebTheme}
+              aria-label="网页跟随应用主题"
+              className={`switch${settings.syncWebTheme ? ' on' : ''}`}
+              onClick={() => updateSettings({ syncWebTheme: !settings.syncWebTheme })}
+            />
+          </div>
+
+          {settings.syncWebTheme && (
+            <div className="form-row column">
+              <span className="form-label">网页配色</span>
+              <div className="segmented" role="tablist">
+                {WEB_THEME_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    role="tab"
+                    aria-selected={settings.webTheme === o.value}
+                    className={`segment${settings.webTheme === o.value ? ' on' : ''}`}
+                    onClick={() => updateSettings({ webTheme: o.value })}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
         <section className="settings-group">
           <h4>数据</h4>
           <p className="settings-hint">

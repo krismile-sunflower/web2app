@@ -10,9 +10,13 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
 
+        <!-- 全屏网页容器：使用 AppCompat DayNight 主题，配合 localNightMode 控制
+             WebView 的 prefers-color-scheme；不声明 uiMode，让系统深浅色切换时重建
+             Activity 以重新套用网页配色 -->
         <activity
             android:name=".WebOpenerActivity"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|navigation|density"
+            android:theme="@style/AppTheme.NoActionBar"
             android:exported="false" />
 
         <activity

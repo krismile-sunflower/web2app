@@ -22,8 +22,17 @@ class WebOpenerPlugin : Plugin() {
         call.getString("userAgent")?.let { intent.putExtra(WebOpenerActivity.EXTRA_UA, it) }
         call.getString("themeColor")?.let { intent.putExtra(WebOpenerActivity.EXTRA_COLOR, it) }
         call.getString("injectScript")?.let { intent.putExtra(WebOpenerActivity.EXTRA_SCRIPT, it) }
+        call.getString("colorScheme")?.let { intent.putExtra(WebOpenerActivity.EXTRA_COLOR_SCHEME, it) }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
+        call.resolve()
+    }
+
+    /** 应用切换主题时实时更新已打开网页的配色 */
+    @PluginMethod
+    fun setColorScheme(call: PluginCall) {
+        val scheme = call.getString("colorScheme")
+        WebOpenerActivity.current?.get()?.applyColorScheme(scheme)
         call.resolve()
     }
 }
