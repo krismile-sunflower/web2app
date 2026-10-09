@@ -25,3 +25,5 @@ dist-ssr
 
 # 本地工作目录（agent 记忆等，不入库）
 .workbuddy-ai/
+# 浏览器自动化调试产物
+.playwright-cli/
