@@ -11,6 +11,7 @@ import {
 } from '../share';
 import { useStore } from '../store';
 import {
+  groupKey,
   hasOverrides,
   sceneMatches,
   sceneSites,
@@ -119,11 +120,15 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
     wasOpen.current = open;
   }, [open]);
 
-  const allGroups = [...new Set(sites.map((s) => s.group || UNGROUPED))];
+  // 「分组」只列真实分组：未分组是空分组在界面上的显示名，不是可勾选的分组，
+  // 它单独用一个开关表达，避免同一件事既当分区标题又当分组选项。
+  const realGroups = [...new Set(sites.map((s) => s.group).filter(Boolean))];
+  const ungroupedCount = sites.filter((s) => !s.group).length;
+  const includeUngrouped = draft?.groups.includes(UNGROUPED) ?? false;
 
   // 已被所选分组覆盖的站点 → 可作为「排除」候选；其余 → 可作为「额外加入」候选
   const coveredIds = new Set(
-    sites.filter((s) => draft?.groups.includes(s.group || UNGROUPED)).map((s) => s.id),
+    sites.filter((s) => draft?.groups.includes(groupKey(s))).map((s) => s.id),
   );
   const excludeCandidates = sites.filter((s) => coveredIds.has(s.id));
   const includeCandidates = sites.filter((s) => !coveredIds.has(s.id));
@@ -141,7 +146,16 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
         : null,
     [parsed, sites, scenes],
   );
-  const unknownGroups = useMemo(() => (plan ? missingGroups(plan, sites) : []), [plan, sites]);
+  // 未分组不参与「本机还没有这个分组」的提醒，它有自己的一行说明
+  const unknownGroups = useMemo(
+    () => (plan ? missingGroups(plan, sites).filter((g) => g !== UNGROUPED) : []),
+    [plan, sites],
+  );
+  const planGroups = useMemo(
+    () => (plan ? plan.groups.filter((g) => g !== UNGROUPED) : []),
+    [plan],
+  );
+  const planHasUngrouped = plan?.groups.includes(UNGROUPED) ?? false;
 
   const patchOverrides = (patch: Partial<SceneOverrides>) => {
     if (!draft) return;
@@ -163,6 +177,11 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
     setDraft({ ...draft, groups });
   };
 
+  const toggleUngrouped = () => {
+    if (!draft) return;
+    toggleGroup(UNGROUPED);
+  };
+
   const toggleInclude = (id: string) => {
     if (!draft) return;
     const includeIds = draft.includeIds.includes(id)
@@ -182,9 +201,7 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
   const save = () => {
     if (!draft || !draft.name.trim()) return;
     // 清理冗余引用：被分组覆盖的站点无需再「额外加入」，未覆盖的站点也谈不上「排除」
-    const covered = new Set(
-      sites.filter((s) => draft.groups.includes(s.group || UNGROUPED)).map((s) => s.id),
-    );
+    const covered = new Set(sites.filter((s) => draft.groups.includes(groupKey(s))).map((s) => s.id));
     const o = draft.overrides;
     const overrides: SceneOverrides = {
       ua: o.ua,
@@ -320,11 +337,11 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                       </span>
                     </div>
                   )}
-                  {plan.groups.length > 0 && (
+                  {planGroups.length > 0 && (
                     <div className="srow srow-col">
                       <span className="srow-label">按分组纳入</span>
                       <div className="chip-row">
-                        {plan.groups.map((g) => (
+                        {planGroups.map((g) => (
                           <span
                             key={g}
                             className={`chip${unknownGroups.includes(g) ? ' danger' : ' active'}`}
@@ -338,6 +355,18 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                           红色分组本机还没有站点，先建好同名分组它才会生效
                         </span>
                       )}
+                    </div>
+                  )}
+                  {planHasUngrouped && (
+                    <div className="srow">
+                      <span className="srow-text">
+                        <span className="srow-label">包含未分组的站点</span>
+                        <span className="srow-sub">
+                          {ungroupedCount > 0
+                            ? '会带上本机所有没有设置分组的站点'
+                            : '本机目前没有未分组的站点，这一条暂时不生效'}
+                        </span>
+                      </span>
                     </div>
                   )}
                   {plan.create.length > 0 && (
@@ -512,11 +541,11 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                   </span>
                   <span className="srow-label">按分组纳入</span>
                 </span>
-                {allGroups.length === 0 ? (
+                {realGroups.length === 0 ? (
                   <span className="srow-sub">还没有任何分组。先给站点设置分组，再回来组合场景。</span>
                 ) : (
                   <div className="chip-row">
-                    {allGroups.map((g) => (
+                    {realGroups.map((g) => (
                       <button
                         key={g}
                         type="button"
@@ -528,6 +557,28 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                     ))}
                   </div>
                 )}
+              </div>
+
+              <div className="srow">
+                <span className="srow-icon tone-blue">
+                  <LayersIcon />
+                </span>
+                <span className="srow-text">
+                  <span className="srow-label">包含未分组的站点</span>
+                  <span className="srow-sub">
+                    {ungroupedCount > 0
+                      ? `把 ${ungroupedCount} 个没有设置分组的站点也纳入`
+                      : '目前没有未分组的站点'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={includeUngrouped}
+                  aria-label="包含未分组的站点"
+                  className={`switch${includeUngrouped ? ' on' : ''}`}
+                  onClick={toggleUngrouped}
+                />
               </div>
 
               {excludeCandidates.length > 0 && (

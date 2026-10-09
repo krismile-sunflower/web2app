@@ -8,7 +8,7 @@ import { SettingsSheet } from './components/SettingsSheet';
 import { applyWebColorScheme, openScene, openSite } from './plugins/webopener';
 import { applyDocumentTheme, resolveAppTheme, webColorScheme, type ColorScheme } from './settings';
 import { useStore } from './store';
-import { sceneSites, withSceneOverrides, UNGROUPED, type Site } from './types';
+import { groupKey, sceneSites, withSceneOverrides, type Site } from './types';
 
 type Modal =
   | { kind: 'editor'; site?: Site }
@@ -113,13 +113,13 @@ export default function App() {
 
   // 顶栏元信息：当前场景内的站点数与分组数（不受搜索影响）
   const groupCount = new Set(
-    visibleSites.filter((s) => !s.pinned).map((s) => s.group || UNGROUPED),
+    visibleSites.filter((s) => !s.pinned).map(groupKey),
   ).size;
 
   const pinned = filtered.filter((s) => s.pinned);
   const groups: { name: string; sites: Site[] }[] = [];
   for (const s of filtered.filter((s) => !s.pinned)) {
-    const name = s.group || UNGROUPED;
+    const name = groupKey(s);
     let g = groups.find((x) => x.name === name);
     if (!g) {
       g = { name, sites: [] };

@@ -115,7 +115,14 @@ class WebOpenerActivity : AppCompatActivity() {
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             )
-            setOnRefreshListener { webViews.get(activeIndex)?.reload() }
+            // SwipeRefreshLayout 判断「内容是否已在顶部」只会问**直接子 View**，
+            // 而这里包的是 FrameLayout（永不滚动）→ 恒判定为「在顶部」，
+            // 结果任何滚动位置向下拖都会被抢走手势触发刷新。改成直接问当前 WebView。
+            setOnChildScrollUpCallback { _, _ -> (webViews.get(activeIndex)?.scrollY ?: 0) > 0 }
+            setOnRefreshListener {
+                val wv = webViews.get(activeIndex)
+                if (wv != null) wv.reload() else isRefreshing = false
+            }
         }
 
         spinner = ProgressBar(this).apply {

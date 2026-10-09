@@ -292,15 +292,24 @@ final class WebOpenerWindowController: NSObject, WKNavigationDelegate {
             }
         })
         observations.append(webView.scrollView.observe(\.contentOffset, options: [.new]) { [weak self, weak webView] scrollView, _ in
-            guard let self, let webView else { return }
-            if scrollView.isTracking && scrollView.contentOffset.y < -70 {
+            guard let self, let webView, index == self.activeIndex else { return }
+
+            // 静止时 contentOffset.y 并不是 0，而是 -contentInset.top（顶部安全区）。
+            // 阈值必须相对这个静止位来算，否则「刚越过顶部一点点」就会被当成下拉刷新，
+            // 让「往上推看内容、手指再自然收回」这种动作频繁误触发。
+            let pull = -scrollView.contentInset.top - scrollView.contentOffset.y
+
+            guard pull > 0 else {
+                // 回到正常位置、或正在向下浏览 → 撤销「上膛」，必须重新完整下拉一次
+                self.pullArmed = false
+                return
+            }
+            if scrollView.isTracking && pull > 80 {
                 self.pullArmed = true
             }
             if !scrollView.isTracking && self.pullArmed {
                 self.pullArmed = false
-                if scrollView.contentOffset.y < -20 {
-                    webView.reload()
-                }
+                if pull > 40 { webView.reload() }
             }
         })
 

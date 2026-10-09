@@ -1,8 +1,9 @@
 import { sanitizeOverrides, sanitizeBackup, useStore, type Backup } from './store';
 import {
+  groupKey,
+  normalizeGroup,
   normalizeUrl,
   sceneSites,
-  UNGROUPED,
   type Scene,
   type SceneOverrides,
   type Site,
@@ -121,7 +122,7 @@ export function sanitizeSiteTemplate(input: unknown): SiteTemplate | null {
   return {
     url,
     name: name || url,
-    group: clip(r['group'], 40),
+    group: normalizeGroup(clip(r['group'], 40)),
     icon: clip(r['icon'], 500).trim() || undefined,
     ua,
     customUa: ua === 'custom' ? clip(r['customUa'], 500) || undefined : undefined,
@@ -310,6 +311,6 @@ export function describePlan(plan: TemplatePlan): string {
 
 /** 分组里出现的名字，用于预览时提示「这些分组本机还没有」 */
 export function missingGroups(plan: TemplatePlan, sites: Site[]): string[] {
-  const local = new Set(sites.map((s) => s.group || UNGROUPED));
+  const local = new Set(sites.map(groupKey));
   return plan.groups.filter((g) => !local.has(g));
 }

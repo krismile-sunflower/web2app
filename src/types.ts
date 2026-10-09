@@ -76,8 +76,26 @@ export function siteInitial(site: Site): string {
   return (n || hostOf(site.url)).charAt(0).toUpperCase() || '?';
 }
 
-/** 未分组站点的分组名 */
+/** 未分组站点的分组名——只是**显示名**，不是一个真实存在的分组 */
 export const UNGROUPED = '未分组';
+
+/**
+ * 站点在「分组」这个维度上的键：空分组统一落到 UNGROUPED。
+ * 场景匹配、首页分区、分组计数都必须走这里，避免各处各写一遍 `s.group || UNGROUPED`。
+ */
+export function groupKey(site: Pick<Site, 'group'>): string {
+  return site.group || UNGROUPED;
+}
+
+/**
+ * 归一化用户输入的分组名。
+ * 字面量「未分组」等同于留空——否则用户手填的「未分组」会和空分组的显示名撞车，
+ * 两组站点在界面上看起来一模一样，却无法区分。
+ */
+export function normalizeGroup(raw: string): string {
+  const v = raw.trim();
+  return v === UNGROUPED ? '' : v;
+}
 
 /**
  * 场景级覆盖：叠加在场景内所有站点之上的上下文。
