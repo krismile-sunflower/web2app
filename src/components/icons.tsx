@@ -134,3 +134,34 @@ export function LaunchIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+/** 系统分享：方框 + 上箭头 */
+export function ShareIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+      <path d="M12 3.4v11.2" />
+      <path d="m8.2 7.2 3.8-3.8 3.8 3.8" />
+      <path d="M5.4 12.4v6.2a1.8 1.8 0 0 0 1.8 1.8h9.6a1.8 1.8 0 0 0 1.8-1.8v-6.2" />
+    </svg>
+  );
+}
+
+/** 复制到剪贴板：两张叠起来的纸 */
+export function CopyIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+      <rect x="8.8" y="8.8" width="11.6" height="11.6" rx="2.4" />
+      <path d="M15.6 5.2a2.4 2.4 0 0 0-2.4-2.4H6a2.4 2.4 0 0 0-2.4 2.4v7.2a2.4 2.4 0 0 0 2.4 2.4" />
+    </svg>
+  );
+}
+
+/** 分享码 / 模板：带尖括号的标签 */
+export function TemplateIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+      <path d="M9.4 7.6 5 12l4.4 4.4" />
+      <path d="m14.6 7.6 4.4 4.4-4.4 4.4" />
+    </svg>
+  );
+}

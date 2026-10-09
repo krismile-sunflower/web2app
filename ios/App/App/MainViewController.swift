@@ -8,5 +8,6 @@ class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(WebOpenerPlugin())
+        bridge?.registerPluginInstance(SharerPlugin())
     }
 }

@@ -30,7 +30,9 @@ https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.a
 - 每页主题色：卡片磁贴与原生工具栏着色
 - 主题联动：应用外观可切换（跟随系统 / 浅色 / 深色），内嵌网页自动套用对应配色；设置里可开关该同步并选择网页配色（跟随应用 / 强制浅色 / 强制深色），切换主题时已打开的网页实时联动
 - 注入脚本：打开页面时执行自定义 JS（如隐藏广告浮层）
-- 数据导出 / 导入：JSON 格式，可备份或迁移设备（导出包含站点、场景与设置）
+- **场景模板分享**：在场景编辑页一键生成分享码（`W2A1.` 开头的单行文本，直接粘进聊天软件即可），对方导入后场景的分组规则、额外纳入 / 排除与场景覆盖都会还原。导出时可选「连站点一起打包」——打开则把场景内站点的网址与配置一并带走，对方无需自己先建站
+- **分享码导入**：粘贴分享码立刻预览会发生什么——会新建哪些网页、复用了本机几个已有站点、哪些分组本机还没有（红色标出）、哪些网址引用不到。本机已有同名场景时自动改名为「名称 2」，不会覆盖你的现有场景
+- 数据导出 / 导入：支持**分享码**与 **JSON** 两种形态（分享码便于发送，JSON 便于存档），导出包含站点、场景与设置，并可直接调起系统分享面板
 - 原生 WebView 打开页：无工具栏全屏沉浸，纯手势导航（左缘滑 / 系统返回 = 网页内有历史先网页内后退，到根再操作退出回首页；iOS 右缘滑 = 前进）、下拉刷新、加载进度条 + 主题色加载背景（无白/黑屏闪烁）
 
 ## 本地开发
@@ -68,18 +70,26 @@ src/                      管理界面（React）
   store.ts                zustand + @capacitor/preferences 本地持久化（站点 + 设置 + 场景）
   types.ts                Site / Scene / SceneOverrides 数据模型、场景匹配与覆盖合并
   settings.ts             外观/主题设置模型与解析（应用主题 → 网页配色方案）
+  share.ts                分享码编解码、场景模板 ⇄ 场景、跨设备解析（按 URL 匹配站点）
   plugins/webopener.ts    WebOpener 插件 JS 侧（open / openScene / setColorScheme；Web 端兜底 window.open）
+  plugins/sharer.ts       Sharer 插件 JS 侧（系统分享面板；Web 端兜底 navigator.share → 剪贴板）
   components/             卡片网格 / 编辑抽屉 / 设置 / 场景管理 / 操作菜单
 ios/App/App/
   MainViewController.swift   capacitorDidLoad 里注册本地插件
   WebOpenerPlugin.swift      插件入口（open / openScene / close / setColorScheme）
   WebOpenerWindowController.swift  全屏多标签 WKWebView + 底部标签栏 + 下拉刷新
+  SharerPlugin.swift         UIActivityViewController 分享面板
 android/.../WebOpenerPlugin.kt / WebOpenerActivity.kt   Android 对应实现
+android/.../SharerPlugin.kt                             ACTION_SEND 分享面板
 ```
 
 本地持久化键：`web2app.sites.v1`（站点）、`web2app.settings.v1`（外观设置）、`web2app.scenes.v1`（场景列表 + 当前激活场景）。三者相互独立，任一损坏都只回退自身。
 
 备份信封：v1 是裸的 `Site[]`；v2 起为 `{ version: 2, sites, scenes, settings }`。导入时由 `sanitizeBackup` 做兼容分发——v1 文件照常可用（场景与设置沿用当前值），v2 文件则整包恢复。删除站点时会同步清理场景里对它的引用，不会留下脏 id。
+
+分享码：`W2A1.` + base64url(JSON)。载荷有两种 `kind`——`scene`（单个场景模板）与 `backup`（完整备份）。导入入口统一走 `parseShareText`，它同时认得分享码、直接粘贴的 JSON、以及旧版裸数组备份三种输入；认不出的一律丢弃非法字段（`sanitizeSceneTemplate` / `sanitizeSiteTemplate`）而不是整包报错。
+
+场景模板的跨设备定位：**分组按名字匹配、纳入 / 排除按 URL 匹配**——id 是本地生成的，换设备后没有意义。`resolveSceneTemplate` 只负责算出「要新建哪些站点、哪些引用不到、要不要改名」，真正落库由 `applySceneTemplate` 执行（先 `addSite` 补站点，再建场景），中间隔着一层预览，让用户先看清后果。
 
 场景覆盖的合并由 `withSceneOverrides(site, scene)` 完成，返回新对象：站点自身的配置永远不被改写，编辑页里看到的始终是原始值；操作菜单里的「编辑 / 删除」按 id 回退到原始站点，避免把覆盖值写回站点。
 
@@ -94,5 +104,8 @@ android/.../WebOpenerPlugin.kt / WebOpenerActivity.kt   Android 对应实现
 - app 内 WebView 的登录态与系统浏览器不共享，每个站点需在 app 内登录一次（cookie / localStorage 均为持久化存储，跨次打开保留，退出页面或重启 app 都不会清除；设置里的"清空全部数据"只清站点列表，不动网页数据）
 - 拖拽排序只在同一分组内生效（跨分组拖动会弹回）
 - 场景覆盖是「整场统一」的：不支持给场景内某个站点单独开小灶（那属于站点自身配置，回站点编辑页改）
+- 分享码里的注入脚本是明文（base64 只是编码，不是加密），且导入后会在打开页面时执行——只接受可信来源的分享码
+- 场景模板按分组名匹配：对方本机没有同名分组时，该分组不会纳入任何站点（导入预览里会用红色标出提醒）
+- 跨设备同步是手动的（分享码 / JSON 文件），没有账号体系与云端；本机数据始终不上传
 - 多标签容器里切换标签会保留各标签的页面状态，但退出容器时全部一起销毁；「返回」只在当前标签内后退，到根再返回就退出容器
 - iOS 真机自用安装需开发者账号（$99/年）走 TestFlight，或 Xcode 直接真机运行

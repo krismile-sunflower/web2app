@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { copyText, shareText } from '../plugins/sharer';
+import {
+  applySceneTemplate,
+  describePlan,
+  encodeShareCode,
+  missingGroups,
+  parseShareText,
+  resolveSceneTemplate,
+  sceneToTemplate,
+} from '../share';
 import { useStore } from '../store';
 import {
   hasOverrides,
@@ -11,7 +21,17 @@ import {
   type Site,
   type UAMode,
 } from '../types';
-import { ChevronRightIcon, LayersIcon, PaletteIcon, PlusIcon, SyncIcon } from './icons';
+import {
+  ChevronRightIcon,
+  CopyIcon,
+  LayersIcon,
+  PaletteIcon,
+  PlusIcon,
+  ShareIcon,
+  SyncIcon,
+  TemplateIcon,
+  UploadIcon,
+} from './icons';
 import { Sheet } from './Sheet';
 
 interface SceneSheetProps {
@@ -76,6 +96,12 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [showScript, setShowScript] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [includeSites, setIncludeSites] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportCode, setExportCode] = useState('');
+  const [msg, setMsg] = useState('');
 
   // 抽屉常驻挂载（保住动画），每次打开回到列表
   const wasOpen = useRef(false);
@@ -83,6 +109,12 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
     if (open && !wasOpen.current) {
       setDraft(null);
       setShowScript(false);
+      setImporting(false);
+      setImportText('');
+      setIncludeSites(false);
+      setExportOpen(false);
+      setExportCode('');
+      setMsg('');
     }
     wasOpen.current = open;
   }, [open]);
@@ -95,6 +127,21 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
   );
   const excludeCandidates = sites.filter((s) => coveredIds.has(s.id));
   const includeCandidates = sites.filter((s) => !coveredIds.has(s.id));
+
+  // 导入：边粘边解析，粘完立刻能看到「会发生什么」
+  const parsed = useMemo(() => parseShareText(importText), [importText]);
+  const plan = useMemo(
+    () =>
+      parsed?.kind === 'scene'
+        ? resolveSceneTemplate(
+            parsed.scene,
+            sites,
+            scenes.map((s) => s.name),
+          )
+        : null,
+    [parsed, sites, scenes],
+  );
+  const unknownGroups = useMemo(() => (plan ? missingGroups(plan, sites) : []), [plan, sites]);
 
   const patchOverrides = (patch: Partial<SceneOverrides>) => {
     if (!draft) return;
@@ -167,9 +214,184 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
     setDraft(null);
   };
 
+  // ---------- 导出模板 ----------
+
+  const doExportTemplate = () => {
+    if (!draft) return;
+    const template = sceneToTemplate(draftScene(draft), sites, includeSites);
+    setExportCode(encodeShareCode({ kind: 'scene', version: 1, scene: template }));
+    setExportOpen(true);
+    setMsg('');
+  };
+
+  const doCopy = async () => {
+    setMsg((await copyText(exportCode)) ? '分享码已复制到剪贴板' : '复制失败，请手动选中复制');
+  };
+
+  const doShare = async () => {
+    const result = await shareText({
+      text: exportCode,
+      title: `网页盒子场景：${draft?.name ?? ''}`,
+    });
+    setMsg(result === 'shared' ? '已分享' : result === 'copied' ? '分享不可用，已复制到剪贴板' : '');
+  };
+
+  // ---------- 导入模板 ----------
+
+  const doApplyTemplate = () => {
+    if (!plan) return;
+    applySceneTemplate(plan);
+    const created = plan.create.length;
+    setImporting(false);
+    setImportText('');
+    setMsg(
+      `已导入场景「${plan.name}」${created ? `，新增 ${created} 个网页` : ''}${
+        plan.renamedFrom ? `（原名「${plan.renamedFrom}」已存在，自动改名）` : ''
+      }`,
+    );
+  };
+
+  const closeImport = () => {
+    setImporting(false);
+    setImportText('');
+  };
+
   return (
     <Sheet open={open} title="场景" onClose={onClose}>
-      {draft === null ? (
+      {importing ? (
+        <div className="settings">
+          <section className="settings-section">
+            <h4 className="settings-caption">导入场景模板</h4>
+            <div className="settings-card">
+              <div className="srow srow-col">
+                <span className="srow-head">
+                  <span className="srow-icon tone-blue">
+                    <TemplateIcon />
+                  </span>
+                  <span className="srow-label">分享码</span>
+                </span>
+                <span className="srow-sub">
+                  粘贴别人发来的分享码（<code>W2A1.</code> 开头），也可以直接粘 JSON
+                </span>
+                <textarea
+                  className="form-textarea mono"
+                  rows={4}
+                  placeholder="W2A1.…"
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                />
+              </div>
+
+              {importText.trim() && !parsed && (
+                <div className="srow">
+                  <span className="srow-text">
+                    <span className="srow-sub">认不出这段内容——请确认分享码是完整复制的</span>
+                  </span>
+                </div>
+              )}
+
+              {parsed?.kind === 'backup' && (
+                <div className="srow">
+                  <span className="srow-text">
+                    <span className="srow-sub">
+                      这是一份完整备份，不是场景模板。请到「设置 → 数据 → 导入数据」恢复。
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              {plan && (
+                <>
+                  <div className="srow">
+                    <span className="srow-icon tone-purple">
+                      <LayersIcon />
+                    </span>
+                    <span className="srow-text">
+                      <span className="srow-label">{plan.name}</span>
+                      <span className="srow-sub">{describePlan(plan)}</span>
+                    </span>
+                  </div>
+                  {plan.renamedFrom && (
+                    <div className="srow">
+                      <span className="srow-text">
+                        <span className="srow-sub">
+                          本机已有同名场景「{plan.renamedFrom}」，导入后会叫「{plan.name}」
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  {plan.groups.length > 0 && (
+                    <div className="srow srow-col">
+                      <span className="srow-label">按分组纳入</span>
+                      <div className="chip-row">
+                        {plan.groups.map((g) => (
+                          <span
+                            key={g}
+                            className={`chip${unknownGroups.includes(g) ? ' danger' : ' active'}`}
+                          >
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                      {unknownGroups.length > 0 && (
+                        <span className="srow-sub">
+                          红色分组本机还没有站点，先建好同名分组它才会生效
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {plan.create.length > 0 && (
+                    <div className="srow srow-col">
+                      <span className="srow-label">将新建的网页</span>
+                      <div className="chip-row">
+                        {plan.create.map((s) => (
+                          <span key={s.url} className="chip">
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                      {plan.create.some((s) => s.injectScript) && (
+                        <span className="srow-sub">
+                          其中部分站点带有注入脚本，导入后会在打开页面时执行
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {plan.missing.length > 0 && (
+                    <div className="srow srow-col">
+                      <span className="srow-label">引用不到 {plan.missing.length} 个站点</span>
+                      <span className="srow-sub">
+                        模板按网址找站点，这些网址本机没有（模板也没带），会被跳过：
+                        {plan.missing.join('、')}
+                      </span>
+                    </div>
+                  )}
+                  {plan.overrides && (
+                    <div className="srow">
+                      <span className="srow-icon tone-orange">
+                        <PaletteIcon />
+                      </span>
+                      <span className="srow-text">
+                        <span className="srow-label">带场景覆盖</span>
+                        <span className="srow-sub">{overrideSummary(plan.overrides)}</span>
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="form">
+              <button className="btn primary" disabled={!plan} onClick={doApplyTemplate}>
+                导入
+              </button>
+              <button className="btn secondary" onClick={closeImport}>
+                返回列表
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : draft === null ? (
         <div className="settings">
           <section className="settings-section">
             <h4 className="settings-caption">场景</h4>
@@ -200,6 +422,10 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                         overrides: { ...sc.overrides },
                       });
                       setShowScript(Boolean(sc.overrides?.injectScript));
+                      setIncludeSites(false);
+                      setExportOpen(false);
+                      setExportCode('');
+                      setMsg('');
                     }}
                   >
                     <span className="srow-icon tone-purple">
@@ -229,6 +455,10 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                     overrides: EMPTY_OVERRIDES,
                   });
                   setShowScript(false);
+                  setIncludeSites(false);
+                  setExportOpen(false);
+                  setExportCode('');
+                  setMsg('');
                 }}
               >
                 <span className="srow-icon tone-blue">
@@ -238,7 +468,24 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
                   <span className="srow-label">新建场景</span>
                 </span>
               </button>
+              <button
+                className="srow"
+                onClick={() => {
+                  setImporting(true);
+                  setImportText('');
+                  setMsg('');
+                }}
+              >
+                <span className="srow-icon tone-green">
+                  <UploadIcon />
+                </span>
+                <span className="srow-text">
+                  <span className="srow-label">导入场景模板</span>
+                  <span className="srow-sub">粘贴别人发来的分享码</span>
+                </span>
+              </button>
             </div>
+            {msg && <p className="settings-msg">{msg}</p>}
           </section>
         </div>
       ) : (
@@ -416,6 +663,63 @@ export function SceneSheet({ open, onClose }: SceneSheetProps) {
             <p className="settings-note">
               覆盖只作用于「打开网页」时的参数与首页卡片外观，不会改动站点自身的配置。
             </p>
+          </section>
+
+          <section className="settings-section">
+            <h4 className="settings-caption">分享模板</h4>
+            <div className="settings-card">
+              <div className="srow">
+                <span className="srow-icon tone-purple">
+                  <ShareIcon />
+                </span>
+                <span className="srow-text">
+                  <span className="srow-label">连站点一起打包</span>
+                  <span className="srow-sub">
+                    带上场景内站点的网址与配置，对方导入后直接能用；关掉则只分享分组规则
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={includeSites}
+                  aria-label="连站点一起打包"
+                  className={`switch${includeSites ? ' on' : ''}`}
+                  onClick={() => {
+                    setIncludeSites((v) => !v);
+                    setExportOpen(false);
+                    setExportCode('');
+                  }}
+                />
+              </div>
+              <button className="srow" onClick={doExportTemplate}>
+                <span className="srow-icon tone-green">
+                  <TemplateIcon />
+                </span>
+                <span className="srow-text">
+                  <span className="srow-label">生成分享码</span>
+                  <span className="srow-sub">一段可直接粘贴发送的文本</span>
+                </span>
+                <span className={`srow-chevron${exportOpen ? ' open' : ''}`}>
+                  <ChevronRightIcon size={15} />
+                </span>
+              </button>
+              {exportOpen && exportCode && (
+                <div className="srow-detail">
+                  <textarea className="form-textarea mono" rows={4} readOnly value={exportCode} />
+                  <div className="srow-actions">
+                    <button className="btn secondary" onClick={() => void doCopy()}>
+                      <CopyIcon size={15} />
+                      复制
+                    </button>
+                    <button className="btn secondary" onClick={() => void doShare()}>
+                      <ShareIcon size={15} />
+                      分享
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {msg && <p className="settings-msg">{msg}</p>}
           </section>
 
           <div className="form">
