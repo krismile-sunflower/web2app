@@ -19,6 +19,7 @@
 		AA00000000000000000000A1 /* WebOpenerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A2 /* WebOpenerPlugin.swift */; };
 		AA00000000000000000000B1 /* WebOpenerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000B2 /* WebOpenerWindowController.swift */; };
 		AA00000000000000000000C1 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000C2 /* MainViewController.swift */; };
+		AA00000000000000000000D1 /* SharerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000D2 /* SharerPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,7 @@
 		AA00000000000000000000A2 /* WebOpenerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebOpenerPlugin.swift; sourceTree = "<group>"; };
 		AA00000000000000000000B2 /* WebOpenerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebOpenerWindowController.swift; sourceTree = "<group>"; };
 		AA00000000000000000000C2 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		AA00000000000000000000D2 /* SharerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharerPlugin.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -74,6 +76,7 @@
 				AA00000000000000000000A2 /* WebOpenerPlugin.swift */,
 				AA00000000000000000000B2 /* WebOpenerWindowController.swift */,
 				AA00000000000000000000C2 /* MainViewController.swift */,
+				AA00000000000000000000D2 /* SharerPlugin.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -172,6 +175,7 @@
 				AA00000000000000000000A1 /* WebOpenerPlugin.swift in Sources */,
 				AA00000000000000000000B1 /* WebOpenerWindowController.swift in Sources */,
 				AA00000000000000000000C1 /* MainViewController.swift in Sources */,
+				AA00000000000000000000D1 /* SharerPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { copyText, shareText } from '../plugins/sharer';
+import { encodeShareCode, parseShareText } from '../share';
 import { THEME_MODE_OPTIONS, WEB_THEME_OPTIONS } from '../settings';
-import { sanitizeBackup, useStore } from '../store';
+import { useStore } from '../store';
 import {
   ChevronRightIcon,
+  CopyIcon,
   DownloadIcon,
   InfoIcon,
   LayersIcon,
   PaletteIcon,
+  ShareIcon,
   SyncIcon,
   TrashIcon,
   UploadIcon,
@@ -19,12 +23,21 @@ interface SettingsSheetProps {
   onManageScenes: () => void;
 }
 
+/** 备份的两种外壳：分享码方便发聊天，JSON 方便存文件 */
+type ExportFormat = 'code' | 'json';
+
+const FORMAT_OPTIONS: Array<{ value: ExportFormat; label: string }> = [
+  { value: 'code', label: '分享码' },
+  { value: 'json', label: 'JSON' },
+];
+
 export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetProps) {
   const sites = useStore((s) => s.sites);
   const scenes = useStore((s) => s.scenes);
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
 
+  const [format, setFormat] = useState<ExportFormat>('code');
   const [exported, setExported] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -36,6 +49,7 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open && !wasOpen.current) {
+      setFormat('code');
       setExported('');
       setExportOpen(false);
       setImportOpen(false);
@@ -46,40 +60,48 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
     wasOpen.current = open;
   }, [open]);
 
-  const doExport = async () => {
-    const json = JSON.stringify({ version: 2, sites, scenes, settings }, null, 2);
-    setExported(json);
+  // 导入：边粘边解析，粘完立刻能看到「会导入什么」
+  const parsed = useMemo(() => parseShareText(importText), [importText]);
+
+  const buildExport = (next: ExportFormat) => {
+    const payload = { kind: 'backup' as const, version: 2, sites, scenes, settings };
+    const text = next === 'code' ? encodeShareCode(payload) : JSON.stringify(payload, null, 2);
+    setFormat(next);
+    setExported(text);
     setExportOpen(true);
     setMsg('');
-    try {
-      await navigator.clipboard.writeText(json);
-      setMsg(`已导出 ${sites.length} 个网页、${scenes.length} 个场景，并复制到剪贴板`);
-    } catch {
-      setMsg('已生成 JSON，请在下方手动复制');
-    }
+  };
+
+  const doCopyExport = async () => {
+    setMsg(
+      (await copyText(exported))
+        ? `已复制${format === 'code' ? '分享码' : ' JSON'}到剪贴板`
+        : '复制失败，请手动选中复制',
+    );
+  };
+
+  const doShareExport = async () => {
+    const result = await shareText({
+      text: exported,
+      title: `网页盒子备份（${sites.length} 个网页 / ${scenes.length} 个场景）`,
+    });
+    setMsg(result === 'shared' ? '已分享' : result === 'copied' ? '分享不可用，已复制到剪贴板' : '');
   };
 
   const doImport = () => {
-    const backup = sanitizeBackup(
-      (() => {
-        try {
-          return JSON.parse(importText);
-        } catch {
-          return null;
-        }
-      })(),
-    );
-    if (!backup) {
-      setMsg('导入失败：JSON 无效或没有可用条目');
-      return;
-    }
-    useStore.getState().importData(backup);
+    if (parsed?.kind !== 'backup') return;
+    const { sites: nextSites, scenes: nextScenes, settings: nextSettings } = parsed;
+    useStore.getState().importData({
+      sites: nextSites,
+      scenes: nextScenes,
+      settings: nextSettings,
+    });
     setImportText('');
     setImportOpen(false);
     setMsg(
-      backup.scenes
-        ? `已导入 ${backup.sites.length} 个网页、${backup.scenes.length} 个场景`
-        : `已导入 ${backup.sites.length} 个网页（旧版备份不含场景）`,
+      nextScenes
+        ? `已导入 ${nextSites.length} 个网页、${nextScenes.length} 个场景`
+        : `已导入 ${nextSites.length} 个网页（旧版备份不含场景）`,
     );
   };
 
@@ -191,14 +213,23 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
         <section className="settings-section">
           <h4 className="settings-caption">数据</h4>
           <div className="settings-card">
-            <button className="srow" onClick={() => void doExport()}>
+            <button
+              className="srow"
+              onClick={() => {
+                if (exportOpen) {
+                  setExportOpen(false);
+                  return;
+                }
+                buildExport(format);
+              }}
+            >
               <span className="srow-icon tone-green">
                 <DownloadIcon />
               </span>
               <span className="srow-text">
                 <span className="srow-label">导出数据</span>
                 <span className="srow-sub">
-                  {sites.length} 个网页 · {scenes.length} 个场景 · 生成 JSON 备份
+                  {sites.length} 个网页 · {scenes.length} 个场景 · 分享码或 JSON
                 </span>
               </span>
               <span className={`srow-chevron${exportOpen ? ' open' : ''}`}>
@@ -207,17 +238,46 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
             </button>
             {exportOpen && exported && (
               <div className="srow-detail">
+                <div className="segmented" role="tablist" aria-label="导出格式">
+                  {FORMAT_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      role="tab"
+                      aria-selected={format === o.value}
+                      className={`segment${format === o.value ? ' on' : ''}`}
+                      onClick={() => buildExport(o.value)}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
                 <textarea className="form-textarea mono" rows={5} readOnly value={exported} />
+                <div className="srow-actions">
+                  <button className="btn secondary" onClick={() => void doCopyExport()}>
+                    <CopyIcon size={15} />
+                    复制
+                  </button>
+                  <button className="btn secondary" onClick={() => void doShareExport()}>
+                    <ShareIcon size={15} />
+                    分享
+                  </button>
+                </div>
               </div>
             )}
 
-            <button className="srow" onClick={() => setImportOpen((v) => !v)}>
+            <button
+              className="srow"
+              onClick={() => {
+                setImportOpen((v) => !v);
+                setMsg('');
+              }}
+            >
               <span className="srow-icon tone-blue">
                 <UploadIcon />
               </span>
               <span className="srow-text">
                 <span className="srow-label">导入数据</span>
-                <span className="srow-sub">粘贴 JSON，覆盖现有站点与场景</span>
+                <span className="srow-sub">粘贴分享码或 JSON，覆盖现有站点与场景</span>
               </span>
               <span className={`srow-chevron${importOpen ? ' open' : ''}`}>
                 <ChevronRightIcon size={15} />
@@ -228,13 +288,39 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
                 <textarea
                   className="form-textarea mono"
                   rows={5}
-                  placeholder="粘贴导出的 JSON"
+                  placeholder="W2A1.… 或粘贴导出的 JSON"
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                 />
-                <button className="btn secondary" disabled={!importText.trim()} onClick={doImport}>
-                  导入并覆盖
-                </button>
+                {importText.trim() && !parsed && (
+                  <span className="srow-sub">
+                    认不出这段内容——请确认分享码是完整复制的，或 JSON 没有被截断。
+                  </span>
+                )}
+                {parsed?.kind === 'backup' && (
+                  <span className="srow-sub">
+                    将覆盖为 {parsed.sites.length} 个网页、
+                    {parsed.scenes ? `${parsed.scenes.length} 个场景` : '场景沿用当前'}
+                  </span>
+                )}
+                {parsed?.kind === 'scene' && (
+                  <span className="srow-sub">
+                    这是一份「场景模板」，不是完整备份。请到「场景 → 导入场景模板」里粘贴。
+                  </span>
+                )}
+                {parsed?.kind === 'scene' ? (
+                  <button className="btn secondary" onClick={onManageScenes}>
+                    去场景管理
+                  </button>
+                ) : (
+                  <button
+                    className="btn secondary"
+                    disabled={parsed?.kind !== 'backup'}
+                    onClick={doImport}
+                  >
+                    导入并覆盖
+                  </button>
+                )}
               </div>
             )}
           </div>

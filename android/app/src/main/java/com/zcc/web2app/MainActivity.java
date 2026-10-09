@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WebOpenerPlugin.class);
+        registerPlugin(SharerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
