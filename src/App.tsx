@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActionSheet, ConfirmDialog, type ActionItem } from './components/ActionSheet';
 import { GearIcon, LaunchIcon, PlusIcon, SearchIcon } from './components/icons';
+import { NoteCard } from './components/NoteCard';
+import { NoteSheet } from './components/NoteSheet';
 import { SceneSheet } from './components/SceneSheet';
 import { SiteCard } from './components/SiteCard';
 import { SiteEditor } from './components/SiteEditor';
 import { SettingsSheet } from './components/SettingsSheet';
+import { copyText } from './plugins/sharer';
 import { applyWebColorScheme, openScene, openSite } from './plugins/webopener';
 import { applyDocumentTheme, resolveAppTheme, webColorScheme, type ColorScheme } from './settings';
 import { useStore } from './store';
-import { groupKey, sceneSites, withSceneOverrides, type Site } from './types';
+import {
+  groupKey,
+  noteTitle,
+  sceneSites,
+  withSceneOverrides,
+  type Site,
+  type TextNote,
+} from './types';
 
 type Modal =
   | { kind: 'editor'; site?: Site }
@@ -16,6 +26,9 @@ type Modal =
   | { kind: 'scenes' }
   | { kind: 'actions'; site: Site }
   | { kind: 'confirm'; site: Site }
+  | { kind: 'note'; note?: TextNote }
+  | { kind: 'note-actions'; note: TextNote }
+  | { kind: 'note-confirm'; note: TextNote }
   | null;
 
 export default function App() {
@@ -26,10 +39,13 @@ export default function App() {
   const activeSceneId = useStore((s) => s.activeSceneId);
   const setActiveScene = useStore((s) => s.setActiveScene);
   const moveWithinSection = useStore((s) => s.moveWithinSection);
+  const notes = useStore((s) => s.notes);
 
   const [modal, setModal] = useState<Modal>(null);
   const [query, setQuery] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
+  const [notePress, setNotePress] = useState<TextNote | null>(null);
+  const [toast, setToast] = useState('');
   const [scrolled, setScrolled] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [resolvedAppTheme, setResolvedAppTheme] = useState<'light' | 'dark'>(() =>
@@ -97,6 +113,34 @@ export default function App() {
     };
   }, [dragId, moveWithinSection]);
 
+  // 文本卡片的长按：文本不参与排序，所以只判断「有没有移动」来决定弹不弹菜单
+  useEffect(() => {
+    if (!notePress) return;
+    const onMove = (e: PointerEvent) => {
+      const d = Math.hypot(e.clientX - startRef.current.x, e.clientY - startRef.current.y);
+      if (d > 12) movedRef.current = true;
+    };
+    const onUp = () => {
+      if (!movedRef.current) setModal({ kind: 'note-actions', note: notePress });
+      setNotePress(null);
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [notePress]);
+
+  // 轻提示：复制这类动作需要一点即时反馈，否则用户不知道到底成没成
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(''), 1800);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
   // 场景：叠加在站点之上的过滤层；null = 全部。
   // 覆盖（UA / 主题色 / 注入脚本）在过滤之后应用，只影响呈现与打开参数，不写回站点
   const activeScene = scenes.find((s) => s.id === activeSceneId) ?? null;
@@ -110,6 +154,9 @@ export default function App() {
   const filtered = q
     ? visibleSites.filter((s) => [s.name, s.url, s.group].some((v) => v.toLowerCase().includes(q)))
     : visibleSites;
+
+  // 文本条目：不参与分组与场景，但搜索时跟网页一起被过滤
+  const filteredNotes = q ? notes.filter((n) => n.body.toLowerCase().includes(q)) : notes;
 
   // 顶栏元信息：当前场景内的站点数与分组数（不受搜索影响）
   const groupCount = new Set(
@@ -138,6 +185,17 @@ export default function App() {
     },
   };
 
+  const noteProps = {
+    onOpen: (note: TextNote) => setModal({ kind: 'note', note }),
+    onLongPress: (note: TextNote, pointer: { x: number; y: number }) => {
+      startRef.current = pointer;
+      movedRef.current = false;
+      setNotePress(note);
+    },
+  };
+
+  const hasVisibleSites = pinned.length + groups.reduce((n, g) => n + g.sites.length, 0) > 0;
+
   // 一键打开：把当前场景里的全部站点交给原生多标签容器
   const launchScene = async () => {
     if (!activeScene || visibleSites.length === 0 || launching) return;
@@ -165,6 +223,25 @@ export default function App() {
             label: '删除',
             destructive: true,
             onPress: () => setModal({ kind: 'confirm', site: originalOf(modal.site) }),
+          },
+        ]
+      : [];
+
+  const noteActionItems: ActionItem[] =
+    modal?.kind === 'note-actions'
+      ? [
+          {
+            label: '复制',
+            onPress: () => {
+              const text = modal.note.body;
+              void copyText(text).then((ok) => setToast(ok ? '已复制到剪贴板' : '复制失败'));
+            },
+          },
+          { label: '编辑', onPress: () => setModal({ kind: 'note', note: modal.note }) },
+          {
+            label: '删除',
+            destructive: true,
+            onPress: () => setModal({ kind: 'note-confirm', note: modal.note }),
           },
         ]
       : [];
@@ -251,7 +328,7 @@ export default function App() {
           <SearchIcon />
           <input
             type="search"
-            placeholder="搜索名称、网址或分组"
+            placeholder="搜索名称、网址、分组或文本"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -259,7 +336,7 @@ export default function App() {
       </header>
 
       <main className="content">
-        {sites.length === 0 ? (
+        {sites.length === 0 && notes.length === 0 ? (
           <div className="empty">
             <button
               className="empty-tile"
@@ -277,14 +354,39 @@ export default function App() {
             {groups.map((g) => (
               <Section key={g.name} title={g.name} sites={g.sites} {...cardProps} />
             ))}
-            {pinned.length + groups.reduce((n, g) => n + g.sites.length, 0) === 0 && (
+            {!hasVisibleSites && filteredNotes.length === 0 && (
               <p className="empty-search">
                 {q
-                  ? `没有匹配「${query}」的网页`
+                  ? `没有匹配「${query}」的内容`
                   : activeScene
                     ? `「${activeScene.name}」场景里还没有站点`
                     : '没有可显示的网页'}
               </p>
+            )}
+
+            {/* 文本条目：独立分区，不参与分组与场景；搜索时跟网页一起被过滤 */}
+            {(!q || filteredNotes.length > 0) && (
+              <section className="group">
+                <h2 className="group-title">文本</h2>
+                <div className="note-list">
+                  {filteredNotes.map((n) => (
+                    <NoteCard key={n.id} note={n} {...noteProps} />
+                  ))}
+                  {!q && (
+                    <button className="note-add" onClick={() => setModal({ kind: 'note' })}>
+                      <span className="note-add-icon">
+                        <PlusIcon size={16} />
+                      </span>
+                      <span className="note-add-text">
+                        <span className="note-add-label">添加文本</span>
+                        <span className="note-add-sub">
+                          备忘录、账号、地址、一段命令……存下来随时一键复制
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </section>
             )}
           </>
         )}
@@ -302,9 +404,20 @@ export default function App() {
         onManageScenes={() => setModal({ kind: 'scenes' })}
       />
       <SceneSheet open={modal?.kind === 'scenes'} onClose={() => setModal(null)} />
+      <NoteSheet
+        open={modal?.kind === 'note'}
+        note={modal?.kind === 'note' ? modal.note : undefined}
+        onClose={() => setModal(null)}
+        onDelete={(note) => setModal({ kind: 'note-confirm', note })}
+      />
       <ActionSheet
         open={modal?.kind === 'actions'}
         items={actionItems}
+        onClose={() => setModal(null)}
+      />
+      <ActionSheet
+        open={modal?.kind === 'note-actions'}
+        items={noteActionItems}
         onClose={() => setModal(null)}
       />
       <ConfirmDialog
@@ -317,6 +430,17 @@ export default function App() {
         }}
         onCancel={() => setModal(null)}
       />
+      <ConfirmDialog
+        open={modal?.kind === 'note-confirm'}
+        title="删除文本"
+        message={`确定删除「${modal?.kind === 'note-confirm' ? noteTitle(modal.note) : ''}」吗？此操作不可撤销。`}
+        onConfirm={() => {
+          if (modal?.kind === 'note-confirm') useStore.getState().removeNote(modal.note.id);
+          setModal(null);
+        }}
+        onCancel={() => setModal(null)}
+      />
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

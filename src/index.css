@@ -13,6 +13,8 @@
   --accent-soft: rgba(0, 122, 255, 0.12);
   --danger: #ff3b30;
   --danger-soft: rgba(255, 59, 48, 0.14);
+  --toast-bg: rgba(0, 0, 0, 0.82);
+  --toast-fg: #ffffff;
   --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.06);
 
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC',
@@ -39,6 +41,9 @@
     --accent-soft: rgba(10, 132, 255, 0.3);
     --danger: #ff453a;
     --danger-soft: rgba(255, 69, 58, 0.22);
+    /* 深色下反相，否则黑底上的黑色提示等于看不见 */
+    --toast-bg: rgba(242, 242, 247, 0.92);
+    --toast-fg: #1c1c1e;
     --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.4);
   }
 }
@@ -58,6 +63,8 @@
   --accent-soft: rgba(10, 132, 255, 0.3);
   --danger: #ff453a;
   --danger-soft: rgba(255, 69, 58, 0.22);
+  --toast-bg: rgba(242, 242, 247, 0.92);
+  --toast-fg: #1c1c1e;
   --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
@@ -670,6 +677,11 @@ textarea {
 
 /* 按钮 */
 .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 按钮里可能带图标（复制 / 分享），用 flex + gap 对齐，别让 svg 贴着文字 */
+  gap: 6px;
   height: 48px;
   border-radius: 13px;
   font-size: 16px;
@@ -1059,4 +1071,126 @@ button.srow:active {
 
 .modal-btn:active {
   background: var(--fill);
+}
+
+/* ============ 文本条目 ============ */
+/* 文本不参与分组与场景，是首页底部的一个独立分区；用整宽行而不是网格磁贴，
+   因为正文需要横向空间才看得清。 */
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: transform 0.18s var(--ease-sheet);
+}
+
+.note-card:active {
+  transform: scale(0.985);
+}
+
+.note-body {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--label);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* 卡片只做预览，全文在抽屉里看 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.note-meta {
+  font-size: 12px;
+  color: var(--label-2);
+}
+
+.note-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  border: 1.5px dashed var(--fill-strong);
+  border-radius: var(--radius-card);
+}
+
+.note-add:active {
+  background: var(--fill);
+}
+
+.note-add-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--fill);
+  color: var(--label-2);
+}
+
+.note-add-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.note-add-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--label);
+}
+
+.note-add-sub {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--label-2);
+}
+
+/* 编辑抽屉里的正文框：给足高度，长文本才不用一直滚 */
+.note-input {
+  min-height: 240px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* ============ 轻提示 ============ */
+/* 复制这类动作需要即时反馈，否则用户不知道到底成没成 */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  padding: 9px 16px;
+  font-size: 14px;
+  color: var(--toast-fg);
+  background: var(--toast-bg);
+  border-radius: 999px;
+  pointer-events: none;
+  animation: toast-in 0.22s var(--ease-sheet);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
 }

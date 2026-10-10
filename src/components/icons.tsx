@@ -165,3 +165,14 @@ export function TemplateIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+/** 纯文本条目：一页带折角的纸 + 两行字 */
+export function NoteIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+      <path d="M13.6 3.4H7a2 2 0 0 0-2 2v13.2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.8z" />
+      <path d="M13.6 3.4v5.4H19" />
+      <path d="M8.6 13.2h6.8M8.6 16.4h4.4" />
+    </svg>
+  );
+}

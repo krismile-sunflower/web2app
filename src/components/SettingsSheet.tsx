@@ -34,6 +34,7 @@ const FORMAT_OPTIONS: Array<{ value: ExportFormat; label: string }> = [
 export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetProps) {
   const sites = useStore((s) => s.sites);
   const scenes = useStore((s) => s.scenes);
+  const notes = useStore((s) => s.notes);
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
 
@@ -64,7 +65,7 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
   const parsed = useMemo(() => parseShareText(importText), [importText]);
 
   const buildExport = (next: ExportFormat) => {
-    const payload = { kind: 'backup' as const, version: 2, sites, scenes, settings };
+    const payload = { kind: 'backup' as const, version: 2, sites, scenes, notes, settings };
     const text = next === 'code' ? encodeShareCode(payload) : JSON.stringify(payload, null, 2);
     setFormat(next);
     setExported(text);
@@ -90,18 +91,20 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
 
   const doImport = () => {
     if (parsed?.kind !== 'backup') return;
-    const { sites: nextSites, scenes: nextScenes, settings: nextSettings } = parsed;
+    const { sites: nextSites, scenes: nextScenes, settings: nextSettings, notes: nextNotes } = parsed;
     useStore.getState().importData({
       sites: nextSites,
       scenes: nextScenes,
       settings: nextSettings,
+      notes: nextNotes,
     });
     setImportText('');
     setImportOpen(false);
+    const notePart = nextNotes ? `、${nextNotes.length} 条文本` : '';
     setMsg(
       nextScenes
-        ? `已导入 ${nextSites.length} 个网页、${nextScenes.length} 个场景`
-        : `已导入 ${nextSites.length} 个网页（旧版备份不含场景）`,
+        ? `已导入 ${nextSites.length} 个网页、${nextScenes.length} 个场景${notePart}`
+        : `已导入 ${nextSites.length} 个网页${notePart}（旧版备份不含场景）`,
     );
   };
 
@@ -111,9 +114,9 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
       window.setTimeout(() => setClearArmed(false), 3000);
       return;
     }
-    useStore.getState().importData({ sites: [], scenes: [] });
+    useStore.getState().importData({ sites: [], scenes: [], notes: [] });
     setClearArmed(false);
-    setMsg('已清空全部站点与场景数据');
+    setMsg('已清空全部网页、场景与文本数据');
   };
 
   return (
@@ -229,7 +232,8 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
               <span className="srow-text">
                 <span className="srow-label">导出数据</span>
                 <span className="srow-sub">
-                  {sites.length} 个网页 · {scenes.length} 个场景 · 分享码或 JSON
+                  {sites.length} 个网页 · {scenes.length} 个场景 · {notes.length} 条文本 · 分享码或
+                  JSON
                 </span>
               </span>
               <span className={`srow-chevron${exportOpen ? ' open' : ''}`}>
@@ -277,7 +281,7 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
               </span>
               <span className="srow-text">
                 <span className="srow-label">导入数据</span>
-                <span className="srow-sub">粘贴分享码或 JSON，覆盖现有站点与场景</span>
+                <span className="srow-sub">粘贴分享码或 JSON，覆盖现有网页、场景与文本</span>
               </span>
               <span className={`srow-chevron${importOpen ? ' open' : ''}`}>
                 <ChevronRightIcon size={15} />
@@ -300,7 +304,8 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
                 {parsed?.kind === 'backup' && (
                   <span className="srow-sub">
                     将覆盖为 {parsed.sites.length} 个网页、
-                    {parsed.scenes ? `${parsed.scenes.length} 个场景` : '场景沿用当前'}
+                    {parsed.scenes ? `${parsed.scenes.length} 个场景` : '场景沿用当前'}、
+                    {parsed.notes ? `${parsed.notes.length} 条文本` : '文本沿用当前'}
                   </span>
                 )}
                 {parsed?.kind === 'scene' && (
@@ -338,7 +343,9 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
                 <span className="srow-label">
                   {clearArmed ? '再点一次确认清空' : '清空全部数据'}
                 </span>
-                <span className="srow-sub">仅删除站点与场景列表，不影响各网页内已保存的登录状态</span>
+                <span className="srow-sub">
+                  仅删除网页、场景与文本列表，不影响各网页内已保存的登录状态
+                </span>
               </span>
             </button>
           </div>

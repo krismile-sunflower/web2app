@@ -98,6 +98,26 @@ export function normalizeGroup(raw: string): string {
 }
 
 /**
+ * 纯文本条目：不是网页，只是一段要长期留着、能一键复制的文字。
+ * 它不参与分组与场景（那些是「工作环境」的概念），但在搜索里跟网页一起被过滤。
+ */
+export interface TextNote {
+  id: string;
+  body: string;
+  createdAt: number;
+}
+
+/** 列表与确认框里用的一行摘要：正文第一行非空内容，过长截断 */
+export function noteTitle(note: TextNote): string {
+  const line = note.body
+    .split('\n')
+    .map((l) => l.trim())
+    .find(Boolean);
+  if (!line) return '（空文本）';
+  return line.length > 60 ? `${line.slice(0, 60)}…` : line;
+}
+
+/**
  * 场景级覆盖：叠加在场景内所有站点之上的上下文。
  * 字段缺省（undefined / 空串）表示「不覆盖」，沿用站点自身的配置。
  */

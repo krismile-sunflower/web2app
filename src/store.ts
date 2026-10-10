@@ -1,11 +1,22 @@
 import { create } from 'zustand';
 import { Preferences } from '@capacitor/preferences';
 import { DEFAULT_SETTINGS, sanitizeSettings, type AppSettings } from './settings';
-import { hasOverrides, normalizeGroup, type Scene, type SceneOverrides, type Site } from './types';
+import {
+  hasOverrides,
+  normalizeGroup,
+  type Scene,
+  type SceneOverrides,
+  type Site,
+  type TextNote,
+} from './types';
 
 const STORAGE_KEY = 'web2app.sites.v1';
 const SETTINGS_KEY = 'web2app.settings.v1';
 const SCENES_KEY = 'web2app.scenes.v1';
+const NOTES_KEY = 'web2app.notes.v1';
+
+/** 单条文本上限：Preferences 背后是 SharedPreferences / UserDefaults，够用但别无限 */
+const MAX_NOTE = 50000;
 
 /** 场景集合与当前激活场景（null = 全部）一起持久化 */
 interface SceneState {
@@ -13,17 +24,19 @@ interface SceneState {
   activeSceneId: string | null;
 }
 
-/** 备份信封：v1 是裸的 Site[]，v2 起为对象；scenes/settings 缺省表示"沿用当前" */
+/** 备份信封：v1 是裸的 Site[]，v2 起为对象；scenes/settings/notes 缺省表示"沿用当前" */
 export interface Backup {
   sites: Site[];
   scenes?: Scene[];
   settings?: AppSettings;
+  notes?: TextNote[];
 }
 
 interface AppState extends SceneState {
   ready: boolean;
   sites: Site[];
   settings: AppSettings;
+  notes: TextNote[];
   init: () => Promise<void>;
   addSite: (s: Omit<Site, 'id' | 'createdAt'>) => Site;
   updateSite: (id: string, patch: Partial<Omit<Site, 'id'>>) => void;
@@ -36,6 +49,9 @@ interface AppState extends SceneState {
   updateScene: (id: string, patch: Partial<Omit<Scene, 'id'>>) => void;
   removeScene: (id: string) => void;
   setActiveScene: (id: string | null) => void;
+  addNote: (body: string) => TextNote;
+  updateNote: (id: string, body: string) => void;
+  removeNote: (id: string) => void;
   /** 恢复备份：未提供的字段沿用当前值 */
   importData: (payload: Backup) => void;
 }
@@ -51,6 +67,10 @@ async function persistSettings(settings: AppSettings) {
 async function persistScenes(scenes: Scene[], activeSceneId: string | null) {
   const payload: SceneState = { scenes, activeSceneId };
   await Preferences.set({ key: SCENES_KEY, value: JSON.stringify(payload) });
+}
+
+async function persistNotes(notes: TextNote[]) {
+  await Preferences.set({ key: NOTES_KEY, value: JSON.stringify(notes) });
 }
 
 export function newId(): string {
@@ -92,6 +112,28 @@ export function sanitizeSites(input: unknown): Site[] | null {
 
 function stringArray(input: unknown): string[] {
   return Array.isArray(input) ? input.filter((v): v is string => typeof v === 'string') : [];
+}
+
+/** 校验文本条目；空正文直接丢弃，非字符串一律不认 */
+export function sanitizeNotes(input: unknown): TextNote[] | null {
+  if (!Array.isArray(input)) return null;
+  const seen = new Set<string>();
+  const out: TextNote[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const body = typeof r.body === 'string' ? r.body.slice(0, MAX_NOTE) : '';
+    if (!body.trim()) continue;
+    let id = typeof r.id === 'string' && r.id ? r.id : newId();
+    while (seen.has(id)) id = newId();
+    seen.add(id);
+    out.push({
+      id,
+      body,
+      createdAt: typeof r.createdAt === 'number' ? r.createdAt : Date.now(),
+    });
+  }
+  return out;
 }
 
 /** 校验场景覆盖；全部字段为空时返回 undefined，避免存下无意义的空对象 */
@@ -148,10 +190,12 @@ export function sanitizeBackup(input: unknown): Backup | null {
   const r = input as Record<string, unknown>;
   const sites = sanitizeSites(r['sites']);
   if (!sites) return null;
+  const notes = sanitizeNotes(r['notes']);
   return {
     sites,
     scenes: Array.isArray(r['scenes']) ? sanitizeScenes(r['scenes']) : undefined,
     settings: r['settings'] ? sanitizeSettings(r['settings']) : undefined,
+    notes: notes ?? undefined,
   };
 }
 
@@ -170,12 +214,19 @@ export const useStore = create<AppState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   scenes: [],
   activeSceneId: null,
+  notes: [],
 
   init: async () => {
-    const [{ value }, { value: settingsValue }, { value: scenesValue }] = await Promise.all([
+    const [
+      { value },
+      { value: settingsValue },
+      { value: scenesValue },
+      { value: notesValue },
+    ] = await Promise.all([
       Preferences.get({ key: STORAGE_KEY }),
       Preferences.get({ key: SETTINGS_KEY }),
       Preferences.get({ key: SCENES_KEY }),
+      Preferences.get({ key: NOTES_KEY }),
     ]);
     let sites: Site[] = [];
     if (value) {
@@ -201,7 +252,15 @@ export const useStore = create<AppState>((set, get) => ({
         sceneState = { scenes: [], activeSceneId: null };
       }
     }
-    set({ sites, settings, ...sceneState, ready: true });
+    let notes: TextNote[] = [];
+    if (notesValue) {
+      try {
+        notes = sanitizeNotes(JSON.parse(notesValue)) ?? [];
+      } catch {
+        notes = [];
+      }
+    }
+    set({ sites, settings, notes, ...sceneState, ready: true });
   },
 
   addSite: (s) => {
@@ -293,15 +352,39 @@ export const useStore = create<AppState>((set, get) => ({
     void persistScenes(get().scenes, activeSceneId);
   },
 
+  addNote: (body) => {
+    const note: TextNote = { id: newId(), body: body.slice(0, MAX_NOTE), createdAt: Date.now() };
+    const notes = [...get().notes, note];
+    set({ notes });
+    void persistNotes(notes);
+    return note;
+  },
+
+  updateNote: (id, body) => {
+    const notes = get().notes.map((n) =>
+      n.id === id ? { ...n, body: body.slice(0, MAX_NOTE) } : n,
+    );
+    set({ notes });
+    void persistNotes(notes);
+  },
+
+  removeNote: (id) => {
+    const notes = get().notes.filter((n) => n.id !== id);
+    set({ notes });
+    void persistNotes(notes);
+  },
+
   importData: (payload) => {
     const sites = payload.sites;
     const scenes = payload.scenes ?? get().scenes;
     const settings = payload.settings ?? get().settings;
+    const notes = payload.notes ?? get().notes;
     const currentActive = get().activeSceneId;
     const activeSceneId = scenes.some((s) => s.id === currentActive) ? currentActive : null;
-    set({ sites, scenes, settings, activeSceneId });
+    set({ sites, scenes, settings, notes, activeSceneId });
     void persistSites(sites);
     void persistScenes(scenes, activeSceneId);
     void persistSettings(settings);
+    void persistNotes(notes);
   },
 }));

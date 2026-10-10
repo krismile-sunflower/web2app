@@ -73,8 +73,9 @@ def main():
         page.wait_for_selector(".card", timeout=8000)
 
         print("\n[1] 首页：手填「未分组」的站点被归一化，与真未分组合并")
-        sections = page.locator(".group-title").all_inner_texts()
-        check("首页只有「工作 / 看盘 / 未分组」三个分区", sorted(sections) == sorted(["工作", "看盘", "未分组"]),
+        # 「文本」是独立分区（不参与分组），单独摘掉再看网页分区
+        sections = [t for t in page.locator(".group-title").all_inner_texts() if t != "文本"]
+        check("网页分区只有「工作 / 看盘 / 未分组」三个", sorted(sections) == sorted(["工作", "看盘", "未分组"]),
               str(sections))
         names = page.locator(".card .card-name").all_inner_texts()
         check("5 个站点全部还在", len(names) == 5, str(names))
