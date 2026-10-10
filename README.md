@@ -25,7 +25,8 @@ https://github.com/krismile-sunflower/web2app/releases/latest/download/web2app.a
 - **场景（工作环境）**：把一组站点组合成一个上下文，例如「上班」只显示内部系统与工具、「看盘」只显示行情与资讯。场景按分组批量纳入，并可额外纳入 / 排除个别站点；「未分组」在这里是一个独立开关（包含未分组的站点），不和真实分组混在一起。首页顶部一键切换，选中后站点网格、计数与分组数一起过滤。场景不改动站点本身，只是叠加在站点之上的一层过滤
 - **场景级覆盖**：场景可以整体覆盖 UA、主题色与注入脚本，作用于「打开网页」时的参数与首页卡片外观。例如「看盘」统一强制桌面 UA + 深色主题色，「上班」统一注入一段隐藏侧边栏的脚本——不用逐个站点去改
 - **一键打开整个场景**：选中场景后点「打开全部」，全部站点在一个原生容器里以底部标签栏打开，各自带着自己的 UA / 主题色 / 注入脚本。标签按需加载后常驻，切回来不会重新加载；只有一个站点时自动隐藏标签栏
-- 搜索：按名称 / 网址 / 分组实时过滤（在当前场景范围内搜索）
+- 搜索：按名称 / 网址 / 分组实时过滤（在当前场景范围内搜索），文本条目也一起被搜索
+- **文本条目**：除了网页，还能直接存一段纯文本（备忘录、账号、地址、一段命令）。首页底部是独立的「文本」分区，点开看全文、一键复制，长按弹操作菜单（复制 / 编辑 / 删除）。文本不参与分组与场景——分组与场景是「工作环境」的概念，文本不属于任何工作环境；它会跟网页一起被搜索、一起进备份
 - 每页 UA 切换：默认（移动）/ 桌面版 / 自定义
 - 每页主题色：卡片磁贴与原生工具栏着色
 - 主题联动：应用外观可切换（跟随系统 / 浅色 / 深色），内嵌网页自动套用对应配色；设置里可开关该同步并选择网页配色（跟随应用 / 强制浅色 / 强制深色），切换主题时已打开的网页实时联动
@@ -68,12 +69,12 @@ npm run ios        # 自动：构建 → 同步 → 编译 → 启动模拟器 �
 ```
 src/                      管理界面（React）
   store.ts                zustand + @capacitor/preferences 本地持久化（站点 + 设置 + 场景）
-  types.ts                Site / Scene / SceneOverrides 数据模型、场景匹配与覆盖合并
+  types.ts                Site / Scene / SceneOverrides / TextNote 数据模型、场景匹配与覆盖合并
   settings.ts             外观/主题设置模型与解析（应用主题 → 网页配色方案）
   share.ts                分享码编解码、场景模板 ⇄ 场景、跨设备解析（按 URL 匹配站点）
   plugins/webopener.ts    WebOpener 插件 JS 侧（open / openScene / setColorScheme；Web 端兜底 window.open）
   plugins/sharer.ts       Sharer 插件 JS 侧（系统分享面板；Web 端兜底 navigator.share → 剪贴板）
-  components/             卡片网格 / 编辑抽屉 / 设置 / 场景管理 / 操作菜单
+  components/             卡片网格 / 编辑抽屉 / 设置 / 场景管理 / 文本条目 / 操作菜单
 ios/App/App/
   MainViewController.swift   capacitorDidLoad 里注册本地插件
   WebOpenerPlugin.swift      插件入口（open / openScene / close / setColorScheme）
@@ -83,9 +84,9 @@ android/.../WebOpenerPlugin.kt / WebOpenerActivity.kt   Android 对应实现
 android/.../SharerPlugin.kt                             ACTION_SEND 分享面板
 ```
 
-本地持久化键：`web2app.sites.v1`（站点）、`web2app.settings.v1`（外观设置）、`web2app.scenes.v1`（场景列表 + 当前激活场景）。三者相互独立，任一损坏都只回退自身。
+本地持久化键：`web2app.sites.v1`（站点）、`web2app.settings.v1`（外观设置）、`web2app.scenes.v1`（场景列表 + 当前激活场景）、`web2app.notes.v1`（文本条目）。四者相互独立，任一损坏都只回退自身。
 
-备份信封：v1 是裸的 `Site[]`；v2 起为 `{ version: 2, sites, scenes, settings }`。导入时由 `sanitizeBackup` 做兼容分发——v1 文件照常可用（场景与设置沿用当前值），v2 文件则整包恢复。删除站点时会同步清理场景里对它的引用，不会留下脏 id。
+备份信封：v1 是裸的 `Site[]`；v2 起为 `{ version: 2, sites, scenes, settings, notes }`。导入时由 `sanitizeBackup` 做兼容分发——v1 文件照常可用（场景 / 设置 / 文本沿用当前值），v2 文件则整包恢复。删除站点时会同步清理场景里对它的引用，不会留下脏 id。
 
 分享码：`W2A1.` + base64url(JSON)。载荷有两种 `kind`——`scene`（单个场景模板）与 `backup`（完整备份）。导入入口统一走 `parseShareText`，它同时认得分享码、直接粘贴的 JSON、以及旧版裸数组备份三种输入；认不出的一律丢弃非法字段（`sanitizeSceneTemplate` / `sanitizeSiteTemplate`）而不是整包报错。
 
@@ -109,6 +110,7 @@ android/.../SharerPlugin.kt                             ACTION_SEND 分享面板
 - 分享码里的注入脚本是明文（base64 只是编码，不是加密），且导入后会在打开页面时执行——只接受可信来源的分享码
 - 场景模板按分组名匹配：对方本机没有同名分组时，该分组不会纳入任何站点（导入预览里会用红色标出提醒）
 - 跨设备同步是手动的（分享码 / JSON 文件），没有账号体系与云端；本机数据始终不上传
+- 文本条目刻意不参与分组与场景：选中场景时「文本」分区照常显示（它不属于任何工作环境）。单条文本上限 5 万字符，正文存明文，别拿它当密码管理器
 - 多标签容器里切换标签会保留各标签的页面状态，但退出容器时全部一起销毁；「返回」只在当前标签内后退，到根再返回就退出容器
 - 下拉刷新的判定只看**当前标签页**是否已在顶部：Android 通过 `SwipeRefreshLayout.setOnChildScrollUpCallback` 直接问 WebView 的 `scrollY`（它默认只问直接子 View，包一层 FrameLayout 就会恒判定为「在顶部」，导致任何位置向下拖都刷新）；iOS 相对 `contentInset.top` 计算拉动距离，必须完整下拉超过阈值才触发，且中途回到正常位置会撤销
 - 分组名「未分组」被保留给空分组：站点编辑页填「未分组」等同于留空。旧数据里的字面量会在加载时于内存中归一化，并在下一次写入时持久化
