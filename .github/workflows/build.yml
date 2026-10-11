@@ -28,6 +28,14 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/web2app.keystore
+      - name: 计算版本号（应用 ID 更换后从头计数）
+        id: ver
+        run: |
+          # 17 是应用 ID 更换前最后一次构建的 run_number；
+          # 新纪元从 build 1 重新计数，版本名随之从 1.0.0 开始
+          CODE=$(( ${{ github.run_number }} - 17 ))
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=1.0.$((CODE - 1))" >> "$GITHUB_OUTPUT"
       - name: Gradle assembleDebug
         working-directory: android
         env:
@@ -37,12 +45,12 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon \
-            -PversionCode=${{ github.run_number }} \
-            -PversionName="1.0.${{ github.run_number }}"
+            -PversionCode=${{ steps.ver.outputs.code }} \
+            -PversionName="${{ steps.ver.outputs.name }}"
       - name: 重命名 APK（固定下载文件名）
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk web2app.apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk "web2app-1.0.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "web2app-${{ steps.ver.outputs.name }}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: web2app-debug-apk
@@ -52,10 +60,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest web2app.apk "web2app-1.0.${{ github.run_number }}.apk" \
-            --title "网页盒子 1.0.${{ github.run_number }}" \
-            --notes "版本 1.0.${{ github.run_number }}（build ${{ github.run_number }}），自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。
-          versionCode 随构建号递增，可直接覆盖安装，无需卸载旧版。
+          gh release create latest web2app.apk "web2app-${{ steps.ver.outputs.name }}.apk" \
+            --title "网页盒子 ${{ steps.ver.outputs.name }}" \
+            --notes "版本 ${{ steps.ver.outputs.name }}（build ${{ steps.ver.outputs.code }}），自动构建于 $(date -u '+%Y-%m-%d %H:%M UTC')，commit ${GITHUB_SHA::7}。
+          自本版起应用 ID 为 com.webbox.app：曾安装过旧 ID 版本的用户需卸载后重装，其余可直接覆盖安装。
           固定下载链接：https://github.com/${{ github.repository }}/releases/latest/download/web2app.apk"
       - name: 确保 Release 已发布（草稿会导致固定链接 404）
         env:

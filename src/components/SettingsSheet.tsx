@@ -359,7 +359,7 @@ export function SettingsSheet({ open, onClose, onManageScenes }: SettingsSheetPr
                 <InfoIcon />
               </span>
               <span className="srow-text">
-                <span className="srow-label">网页盒子 v0.1.0</span>
+                <span className="srow-label">网页盒子 v1.0.0</span>
                 <span className="srow-sub">
                   把网页变成你手机上的 app。所有数据仅保存在本机，不上传服务器。
                 </span>
