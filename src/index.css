@@ -1,71 +1,86 @@
 /* ============ 设计令牌 ============ */
+/* 原生克制的平面语言：铬是中性的，颜色只来自站点自身；
+   阴影只留给真正悬浮的元素（抽屉 / 弹窗 / 菜单） */
 :root {
-  --bg: #f2f2f7;
-  --topbar-bg: rgba(242, 242, 247, 0.88);
+  --bg: #f3f3f8;
+  --topbar-bg: rgba(243, 243, 248, 0.82);
   --card: #ffffff;
-  --sheet-bg: #f7f7fb;
-  --label: #1c1c1e;
-  --label-2: #6e6e73;
-  --sep: rgba(60, 60, 67, 0.16);
-  --fill: rgba(120, 120, 128, 0.12);
-  --fill-strong: rgba(120, 120, 128, 0.2);
+  --sheet-bg: #f8f8fc;
+  --label: #16161a;
+  --label-2: #6e6e78;
+  --sep: rgba(60, 60, 67, 0.14);
+  --fill: rgba(120, 120, 128, 0.1);
+  --fill-strong: rgba(120, 120, 128, 0.16);
   --accent: #007aff;
   --accent-soft: rgba(0, 122, 255, 0.12);
   --danger: #ff3b30;
   --danger-soft: rgba(255, 59, 48, 0.14);
-  --toast-bg: rgba(0, 0, 0, 0.82);
+  --ok: #34c759;
+  --toast-bg: rgba(28, 28, 34, 0.82);
   --toast-fg: #ffffff;
-  --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --segment-thumb: #ffffff;
+  --segment-on-fg: var(--accent);
+  --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --overlay-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
 
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC',
     'Helvetica Neue', 'Segoe UI', sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
-  --radius-tile: 14px;
+  /* 圆角体系：控件 12 < 卡片/磁贴 16 < 容器 20，容器永远比内容大一级 */
+  --radius-ctl: 12px;
+  --radius-tile: 16px;
   --radius-card: 16px;
+  --radius-box: 20px;
 }
 
-/* 深色配色：JS 未接管前由系统偏好兜底（data-theme 缺省时生效） */
+/* 深色配色：JS 未接管前由系统偏好兜底（data-theme 缺省时生效）。
+   底色带一点蓝调而非纯黑，卡片比底色亮一级拉开层次 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #000000;
-    --topbar-bg: rgba(0, 0, 0, 0.82);
-    --card: #1c1c1e;
-    --sheet-bg: #1f1f22;
-    --label: #ffffff;
+    --bg: #0c0c11;
+    --topbar-bg: rgba(12, 12, 17, 0.75);
+    --card: #17171d;
+    --sheet-bg: #1b1b22;
+    --label: #f5f5f7;
     --label-2: #98989f;
-    --sep: rgba(84, 84, 88, 0.55);
-    --fill: rgba(120, 120, 128, 0.22);
-    --fill-strong: rgba(120, 120, 128, 0.36);
+    --sep: rgba(84, 84, 100, 0.42);
+    --fill: rgba(120, 120, 128, 0.2);
+    --fill-strong: rgba(120, 120, 128, 0.32);
     --accent: #0a84ff;
     --accent-soft: rgba(10, 132, 255, 0.3);
     --danger: #ff453a;
     --danger-soft: rgba(255, 69, 58, 0.22);
-    /* 深色下反相，否则黑底上的黑色提示等于看不见 */
-    --toast-bg: rgba(242, 242, 247, 0.92);
-    --toast-fg: #1c1c1e;
+    --toast-bg: rgba(242, 242, 247, 0.94);
+    --toast-fg: #16161a;
+    --segment-thumb: #5a5a64;
+    --segment-on-fg: #ffffff;
     --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.4);
+    --overlay-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
   }
 }
 
 /* 应用内强制深色（用户显式选择，优先于系统偏好） */
 :root[data-theme='dark'] {
-  --bg: #000000;
-  --topbar-bg: rgba(0, 0, 0, 0.82);
-  --card: #1c1c1e;
-  --sheet-bg: #1f1f22;
-  --label: #ffffff;
+  --bg: #0c0c11;
+  --topbar-bg: rgba(12, 12, 17, 0.75);
+  --card: #17171d;
+  --sheet-bg: #1b1b22;
+  --label: #f5f5f7;
   --label-2: #98989f;
-  --sep: rgba(84, 84, 88, 0.55);
-  --fill: rgba(120, 120, 128, 0.22);
-  --fill-strong: rgba(120, 120, 128, 0.36);
+  --sep: rgba(84, 84, 100, 0.42);
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-strong: rgba(120, 120, 128, 0.32);
   --accent: #0a84ff;
   --accent-soft: rgba(10, 132, 255, 0.3);
   --danger: #ff453a;
   --danger-soft: rgba(255, 69, 58, 0.22);
-  --toast-bg: rgba(242, 242, 247, 0.92);
-  --toast-fg: #1c1c1e;
+  --toast-bg: rgba(242, 242, 247, 0.94);
+  --toast-fg: #16161a;
+  --segment-thumb: #5a5a64;
+  --segment-on-fg: #ffffff;
   --tile-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.4);
+  --overlay-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
 }
 
 /* ============ 基础 ============ */
@@ -107,6 +122,11 @@ textarea {
   color: var(--label);
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .screen {
   max-width: 640px;
   margin: 0 auto;
@@ -119,8 +139,8 @@ textarea {
 .topbar {
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
   background: var(--topbar-bg);
-  backdrop-filter: saturate(160%) blur(18px);
-  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -158,38 +178,11 @@ textarea {
   font-size: 12.5px;
   color: var(--label-2);
   margin-top: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .meta-dot {
   opacity: 0.5;
-}
-
-/* 场景激活时的「打开全部」：贴右，强调色胶囊 */
-.launch-btn {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 11px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 600;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.launch-btn svg {
-  flex-shrink: 0;
-}
-
-.launch-btn:active {
-  transform: scale(0.95);
-}
-
-.launch-btn:disabled {
-  opacity: 0.6;
 }
 
 .topbar-actions {
@@ -226,14 +219,15 @@ textarea {
   height: 40px;
   margin-top: 12px;
   padding: 0 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-ctl);
   background: var(--fill);
   color: var(--label-2);
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, box-shadow 0.2s ease;
 }
 
 .searchbar:focus-within {
-  background: var(--fill-strong);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* 场景切换条（顶栏内横向滚动） */
@@ -282,16 +276,172 @@ textarea {
 }
 
 .group-title {
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--label-2);
-  padding: 0 2px 10px;
+  padding: 0 4px 10px;
+}
+
+.group-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--label-2);
+  background: var(--fill);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 分组容器卡：大圆角包住小磁贴，容器永远比内容大一级 */
+.group-box {
+  background: var(--card);
+  border-radius: var(--radius-box);
+  padding: 14px 12px 12px;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
   gap: 18px 8px;
+}
+
+/* ============ 场景入口卡 ============ */
+/* 场景激活时内容区顶部的一行卡：场景名 + 数量 + 实心打开按钮 */
+.scene-hero {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-box);
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scene-hero-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.scene-hero-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-hero-count {
+  font-size: 12.5px;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.scene-hero-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-ctl);
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.scene-hero-open:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+.scene-hero-open:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ============ 置顶大卡 ============ */
+.pin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+/* 置顶站点用横排行卡：和分组小磁贴拉开大小差 */
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: transform 0.15s ease;
+}
+
+.card-row:active {
+  transform: scale(0.98);
+}
+
+.card-row.dragging {
+  transform: scale(1.05);
+  z-index: 5;
+  position: relative;
+  box-shadow: var(--overlay-shadow);
+}
+
+.card-row .card-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  flex: none;
+}
+
+.card-row .card-favicon {
+  width: 27px;
+  height: 27px;
+  border-radius: 7px;
+}
+
+.card-row .card-letter {
+  font-size: 18px;
+}
+
+.card-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.card-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-row-host {
+  font-size: 11.5px;
+  color: var(--label-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ============ 卡片 ============ */
@@ -304,19 +454,21 @@ textarea {
   -webkit-touch-callout: none;
   user-select: none;
   touch-action: auto;
-  transition: transform 0.18s var(--ease-sheet);
+  transition: transform 0.15s ease;
 }
 
 .card:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
 }
 
 .card.dragging {
-  transform: scale(1.14);
+  transform: scale(1.1);
   z-index: 5;
   position: relative;
 }
 
+/* 磁贴：平色 + 细阴影。真实的 iOS 图标本来就是平的，
+   光泽感交给 favicon 自己带来 */
 .card-tile {
   width: 62px;
   height: 62px;
@@ -324,13 +476,14 @@ textarea {
   display: grid;
   place-items: center;
   overflow: hidden;
+  background: var(--tile);
   box-shadow: var(--tile-shadow);
 }
 
 .card-favicon {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #fff;
   object-fit: contain;
   padding: 4px;
@@ -344,8 +497,8 @@ textarea {
 }
 
 .card-name {
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: -0.1px;
   line-height: 1.25;
   color: var(--label);
@@ -370,7 +523,7 @@ textarea {
 .empty-tile {
   width: 74px;
   height: 74px;
-  border-radius: 18px;
+  border-radius: 22px;
   border: 2px dashed var(--fill-strong);
   color: var(--label-2);
   display: grid;
@@ -386,6 +539,7 @@ textarea {
 .empty h2 {
   font-size: 19px;
   font-weight: 700;
+  text-wrap: balance;
 }
 
 .empty p {
@@ -410,7 +564,7 @@ textarea {
 .sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.42);
   opacity: 0;
   transition: opacity 0.28s ease;
 }
@@ -425,13 +579,15 @@ textarea {
   right: 0;
   bottom: 0;
   max-height: 92vh;
+  max-height: 92dvh;
   background: var(--sheet-bg);
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-box) var(--radius-box) 0 0;
   display: flex;
   flex-direction: column;
   transform: translateY(105%);
   transition: transform 0.32s var(--ease-sheet);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: var(--overlay-shadow);
 }
 
 .sheet-layer.open .sheet {
@@ -456,8 +612,9 @@ textarea {
 }
 
 .sheet-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
 }
 
 .sheet-close {
@@ -503,37 +660,43 @@ textarea {
   min-width: 0;
 }
 
+/* 输入框：填充底，聚焦时描边 + 光环 */
 .form-input {
   flex: 1;
   min-width: 0;
   height: 46px;
   padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid var(--sep);
-  background: var(--card);
+  border-radius: var(--radius-ctl);
+  border: 1px solid transparent;
+  background: var(--fill);
   font-size: 16px;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
 .form-input:focus {
+  background: var(--card);
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .form-textarea {
   width: 100%;
   padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--sep);
-  background: var(--card);
+  border-radius: var(--radius-ctl);
+  border: 1px solid transparent;
+  background: var(--fill);
   font-size: 15px;
   outline: none;
   resize: vertical;
   min-height: 44px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
 .form-textarea:focus {
+  background: var(--card);
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .mono {
@@ -561,12 +724,17 @@ textarea {
   font-size: 13px;
   font-weight: 500;
   color: var(--label-2);
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.chip:active {
+  transform: scale(0.96);
 }
 
 .chip.active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 
 /* 新增/管理入口：虚线描边，与普通场景 chip 区分开 */
@@ -585,11 +753,11 @@ textarea {
   color: var(--danger);
 }
 
-/* 分段控件 */
+/* 分段控件：浮起滑块，选中段变成小卡片 */
 .segmented {
   display: flex;
   background: var(--fill);
-  border-radius: 10px;
+  border-radius: var(--radius-ctl);
   padding: 2px;
   gap: 2px;
 }
@@ -598,20 +766,21 @@ textarea {
   flex: 1;
   min-width: 0;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--label-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .segment.on {
-  background: var(--accent);
-  color: #fff;
+  background: var(--segment-thumb);
+  color: var(--segment-on-fg);
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
 
 /* 主题色 */
@@ -624,7 +793,7 @@ textarea {
 .swatch {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
+  border-radius: 12px;
   border: 3px solid transparent;
   transition: transform 0.15s ease;
 }
@@ -648,7 +817,7 @@ textarea {
 
 .swatch.on {
   border-color: var(--label);
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .swatch:active {
@@ -671,7 +840,7 @@ textarea {
 
 .form-ok {
   font-size: 13px;
-  color: #34c759;
+  color: var(--ok);
   font-weight: 500;
 }
 
@@ -683,7 +852,7 @@ textarea {
   /* 按钮里可能带图标（复制 / 分享），用 flex + gap 对齐，别让 svg 贴着文字 */
   gap: 6px;
   height: 48px;
-  border-radius: 13px;
+  border-radius: var(--radius-ctl);
   font-size: 16px;
   font-weight: 600;
   transition: transform 0.15s ease, opacity 0.15s ease;
@@ -793,7 +962,7 @@ button.srow:active {
 .srow-icon {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -860,7 +1029,7 @@ button.srow:active {
   color: var(--label-2);
   flex-shrink: 0;
   opacity: 0.65;
-  transition: transform 0.2s var(--ease-sheet);
+  transition: transform 0.2s ease;
 }
 
 .srow-chevron.open {
@@ -890,6 +1059,7 @@ button.srow:active {
 .srow .form-input:focus,
 .srow .form-textarea:focus,
 .srow-detail .form-textarea:focus {
+  background: var(--bg);
   border-color: var(--accent);
 }
 
@@ -901,7 +1071,7 @@ button.srow:active {
 
 .settings-msg {
   font-size: 13px;
-  color: #34c759;
+  color: var(--ok);
   font-weight: 500;
   padding: 0 4px;
 }
@@ -967,12 +1137,22 @@ button.srow:active {
   transform: translateY(0);
 }
 
+/* 毛玻璃分组：iOS 操作菜单的原生材质 */
 .action-group {
   background: var(--sheet-bg);
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--overlay-shadow);
+}
+
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  .action-group {
+    background: color-mix(in srgb, var(--sheet-bg) 84%, transparent);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+  }
 }
 
 .action-item {
@@ -982,6 +1162,7 @@ button.srow:active {
   background: none;
   position: relative;
   flex-shrink: 0;
+  transition: background 0.15s ease;
 }
 
 .action-item + .action-item::before {
@@ -1022,12 +1203,13 @@ button.srow:active {
   width: 100%;
   max-width: 300px;
   background: var(--sheet-bg);
-  border-radius: 16px;
+  border-radius: var(--radius-box);
   overflow: hidden;
   text-align: center;
-  transform: scale(0.9);
+  transform: scale(0.95);
   opacity: 0;
-  transition: transform 0.2s var(--ease-sheet), opacity 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  box-shadow: var(--overlay-shadow);
 }
 
 .modal-layer.open .modal-card {
@@ -1058,6 +1240,7 @@ button.srow:active {
   height: 46px;
   font-size: 16px;
   color: var(--accent);
+  transition: background 0.15s ease;
 }
 
 .modal-btn + .modal-btn {
@@ -1093,11 +1276,11 @@ button.srow:active {
   border-radius: var(--radius-card);
   -webkit-touch-callout: none;
   user-select: none;
-  transition: transform 0.18s var(--ease-sheet);
+  transition: transform 0.15s ease;
 }
 
 .note-card:active {
-  transform: scale(0.985);
+  transform: scale(0.99);
 }
 
 .note-body {
@@ -1127,6 +1310,7 @@ button.srow:active {
   text-align: left;
   border: 1.5px dashed var(--fill-strong);
   border-radius: var(--radius-card);
+  transition: background 0.15s ease;
 }
 
 .note-add:active {
@@ -1188,9 +1372,28 @@ button.srow:active {
   animation: toast-in 0.22s var(--ease-sheet);
 }
 
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  .toast {
+    background: color-mix(in srgb, var(--toast-bg) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+  }
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
     transform: translate(-50%, 8px);
+  }
+}
+
+/* ============ 可访问性 ============ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

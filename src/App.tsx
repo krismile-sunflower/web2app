@@ -280,17 +280,6 @@ export default function App() {
               <span>{groupCount} 个分组</span>
             </>
           )}
-          {activeScene && visibleSites.length > 0 && (
-            <button
-              type="button"
-              className="launch-btn"
-              disabled={launching}
-              onClick={() => void launchScene()}
-            >
-              <LaunchIcon size={13} />
-              <span>{launching ? '正在打开…' : '打开全部'}</span>
-            </button>
-          )}
         </p>
         <div className="scene-bar" role="tablist" aria-label="场景">
           <button
@@ -350,7 +339,41 @@ export default function App() {
           </div>
         ) : (
           <>
-            {pinned.length > 0 && <Section title="置顶" sites={pinned} {...cardProps} />}
+            {/* 场景激活时的「工作环境」入口：一键打开整个场景 */}
+            {activeScene && visibleSites.length > 0 && (
+              <section className="scene-hero">
+                <div className="scene-hero-info">
+                  <h2 className="scene-hero-name">{activeScene.name}</h2>
+                  <p className="scene-hero-count">{visibleSites.length} 个网页</p>
+                </div>
+                <button
+                  type="button"
+                  className="scene-hero-open"
+                  disabled={launching}
+                  onClick={() => void launchScene()}
+                >
+                  <LaunchIcon size={14} />
+                  <span>{launching ? '正在打开…' : '打开全部'}</span>
+                </button>
+              </section>
+            )}
+            {pinned.length > 0 && (
+              <section className="group">
+                <h2 className="group-title">置顶</h2>
+                <div className="pin-grid">
+                  {pinned.map((site) => (
+                    <SiteCard
+                      key={site.id}
+                      site={site}
+                      variant="row"
+                      dragging={dragId === site.id}
+                      onOpen={cardProps.onOpen}
+                      onLongPress={cardProps.onLongPress}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
             {groups.map((g) => (
               <Section key={g.name} title={g.name} sites={g.sites} {...cardProps} />
             ))}
@@ -456,17 +479,22 @@ interface SectionProps {
 function Section({ title, sites, draggingId, onOpen, onLongPress }: SectionProps) {
   return (
     <section className="group">
-      <h2 className="group-title">{title}</h2>
-      <div className="grid">
-        {sites.map((site) => (
-          <SiteCard
-            key={site.id}
-            site={site}
-            dragging={draggingId === site.id}
-            onOpen={onOpen}
-            onLongPress={onLongPress}
-          />
-        ))}
+      <h2 className="group-title">
+        {title}
+        <span className="group-count">{sites.length}</span>
+      </h2>
+      <div className="group-box">
+        <div className="grid">
+          {sites.map((site) => (
+            <SiteCard
+              key={site.id}
+              site={site}
+              dragging={draggingId === site.id}
+              onOpen={onOpen}
+              onLongPress={onLongPress}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

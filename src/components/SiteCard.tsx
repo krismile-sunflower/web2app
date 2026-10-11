@@ -1,21 +1,24 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { faviconChain, hostOf, siteInitial, THEME_COLORS, type Site } from '../types';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { faviconChain, hashColor, hostOf, siteInitial, type Site } from '../types';
 
 interface SiteCardProps {
   site: Site;
   dragging: boolean;
+  /** tile = 分组里的方形磁贴；row = 置顶区的横排行卡 */
+  variant?: 'tile' | 'row';
   onOpen: (site: Site) => void;
   /** 长按触发（400ms）；拖拽与操作菜单都从这里开始 */
   onLongPress: (site: Site, pointer: { x: number; y: number }) => void;
 }
 
-function hashColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return THEME_COLORS[Math.abs(h) % THEME_COLORS.length];
-}
-
-export function SiteCard({ site, dragging, onOpen, onLongPress }: SiteCardProps) {
+export function SiteCard({ site, dragging, variant = 'tile', onOpen, onLongPress }: SiteCardProps) {
   const chain = useMemo(() => faviconChain(site), [site.icon, site.url]);
   const [iconStep, setIconStep] = useState(0);
   const timerRef = useRef<number | null>(null);
@@ -51,33 +54,52 @@ export function SiteCard({ site, dragging, onOpen, onLongPress }: SiteCardProps)
     }
   };
 
+  // 渐变与同色投影都由 CSS 从 --tile 派生，这里只给基色
+  const tileStyle = { '--tile': color } as CSSProperties;
+
+  const tile = (
+    <span className="card-tile" style={tileStyle}>
+      {iconSrc ? (
+        <img
+          className="card-favicon"
+          src={iconSrc}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onError={() => setIconStep((s) => s + 1)}
+        />
+      ) : (
+        <span className="card-letter">{siteInitial(site)}</span>
+      )}
+    </span>
+  );
+
+  const handlers = {
+    onClick: () => {
+      if (!firedRef.current) onOpen(site);
+    },
+    onPointerDown,
+    onPointerUp,
+    onPointerLeave: clearTimer,
+    onPointerCancel: clearTimer,
+    onContextMenu: (e: ReactMouseEvent) => e.preventDefault(),
+  };
+
+  if (variant === 'row') {
+    return (
+      <button className={`card-row${dragging ? ' dragging' : ''}`} data-site-id={site.id} {...handlers}>
+        {tile}
+        <span className="card-row-text">
+          <span className="card-row-name">{site.name || hostOf(site.url)}</span>
+          <span className="card-row-host">{hostOf(site.url)}</span>
+        </span>
+      </button>
+    );
+  }
+
   return (
-    <button
-      className={`card${dragging ? ' dragging' : ''}`}
-      data-site-id={site.id}
-      onClick={() => {
-        if (!firedRef.current) onOpen(site);
-      }}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
-      onPointerLeave={clearTimer}
-      onPointerCancel={clearTimer}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <span className="card-tile" style={{ backgroundColor: color }}>
-        {iconSrc ? (
-          <img
-            className="card-favicon"
-            src={iconSrc}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            onError={() => setIconStep((s) => s + 1)}
-          />
-        ) : (
-          <span className="card-letter">{siteInitial(site)}</span>
-        )}
-      </span>
+    <button className={`card${dragging ? ' dragging' : ''}`} data-site-id={site.id} {...handlers}>
+      {tile}
       <span className="card-name">{site.name || hostOf(site.url)}</span>
     </button>
   );

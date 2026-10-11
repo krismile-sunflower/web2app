@@ -35,6 +35,13 @@ export const THEME_COLORS = [
   '#34C759',
 ] as const;
 
+/** 无主题色的站点按名称散列取一个系统色，保证同名磁贴的颜色稳定 */
+export function hashColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return THEME_COLORS[Math.abs(h) % THEME_COLORS.length];
+}
+
 /** 补全 URL 协议；非法返回 null */
 export function normalizeUrl(raw: string): string | null {
   let v = raw.trim();
