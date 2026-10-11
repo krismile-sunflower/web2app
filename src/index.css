@@ -480,6 +480,23 @@ textarea {
   box-shadow: var(--tile-shadow);
 }
 
+/* 抓到了真实图标的站点：不再用主题色包裹，白色圆角底直接承载图标。
+   深色模式下白底让深色 logo 仍可辨识，浅色模式下底色与卡片融为一体，
+   视觉上就是「直接展示图标」 */
+.card-tile.has-icon {
+  background: #fff;
+  box-shadow: var(--tile-shadow);
+}
+
+.card-tile.has-icon .card-favicon {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  border-radius: inherit;
+  background: none;
+  object-fit: contain;
+}
+
 .card-favicon {
   width: 36px;
   height: 36px;
@@ -1046,6 +1063,21 @@ button.srow:active {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* 导出详情里的操作按钮行：等宽并排，按钮元素默认收缩宽度会挤成一团 */
+.srow-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.srow-actions .btn {
+  flex: 1;
+}
+
+/* 详情区里的独立按钮（导入并覆盖 / 去场景管理）通栏 */
+.srow-detail > .btn {
+  width: 100%;
 }
 
 /* 卡片内的输入框用内嵌底色，避免与卡片同色而看不出边界 */

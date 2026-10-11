@@ -58,7 +58,7 @@ export function SiteCard({ site, dragging, variant = 'tile', onOpen, onLongPress
   const tileStyle = { '--tile': color } as CSSProperties;
 
   const tile = (
-    <span className="card-tile" style={tileStyle}>
+    <span className={`card-tile${iconSrc ? ' has-icon' : ''}`} style={tileStyle}>
       {iconSrc ? (
         <img
           className="card-favicon"
