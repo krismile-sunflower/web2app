@@ -20,6 +20,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
@@ -89,6 +90,19 @@ class WebOpenerActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         current = WeakReference(this)
+
+        // targetSdk 36 起系统强制启用预测性返回，重写 onBackPressed() 不再被回调；
+        // 统一经 OnBackPressedDispatcher 接收系统返回：有历史先网页内后退，无历史退出
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val view = webViews.get(activeIndex)
+                if (view != null && view.canGoBack()) {
+                    view.goBack()
+                } else {
+                    finishAfterTransition()
+                }
+            }
+        })
 
         readTabs()
         if (tabs.isEmpty()) {
@@ -417,16 +431,6 @@ class WebOpenerActivity : AppCompatActivity() {
     private fun applyAlgorithmicDarkening(view: WebView, isDark: Boolean) {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
             WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isDark)
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        val view = webViews.get(activeIndex)
-        if (view != null && view.canGoBack()) {
-            view.goBack()
-        } else {
-            super.onBackPressed()
         }
     }
 

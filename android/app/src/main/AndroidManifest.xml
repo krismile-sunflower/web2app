@@ -12,10 +12,13 @@
 
         <!-- 全屏网页容器：使用 AppCompat DayNight 主题，配合 localNightMode 控制
              WebView 的 prefers-color-scheme；不声明 uiMode，让系统深浅色切换时重建
-             Activity 以重新套用网页配色 -->
+             Activity 以重新套用网页配色。enableOnBackInvokedCallback 让 Android 13-15
+             也走预测性返回通道（Android 16 + targetSdk 36 已强制开启），配合
+             OnBackPressedDispatcher 实现网页内后退 -->
         <activity
             android:name=".WebOpenerActivity"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|navigation|density"
+            android:enableOnBackInvokedCallback="true"
             android:theme="@style/AppTheme.NoActionBar"
             android:exported="false" />
 
